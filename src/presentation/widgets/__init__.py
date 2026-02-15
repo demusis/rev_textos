@@ -1,0 +1,1 @@
+"""Widgets customizados da GUI."""
