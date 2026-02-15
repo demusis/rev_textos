@@ -2,14 +2,18 @@
 
 Sistema de revisão automática de textos estruturados usando inteligência artificial (Google Gemini).
 
-## 🎯 Funcionalidades
+O sistema processa documentos (PDF, Markdown), identifica seções e aplica múltiplos ciclos de revisão para garantir qualidade gramatical, técnica e consistência.
 
-- **Revisão Gramatical**: Ortografia, concordância, regência, pontuação
-- **Revisão Técnica**: Terminologia pericial, conformidade com normas
-- **Revisão Estrutural**: Organização lógica, coerência entre seções
-- **Verificação de Consistência**: Cruzamento entre seções do documento
-- **Relatórios**: Geração em Markdown e HTML com métricas detalhadas
-- **Interface Gráfica**: GUI PyQt6 moderna com tema profissional
+## 🎯 Funcionalidades Principais
+
+-   **Revisão Iterativa com Refinamento**: O sistema não apenas aponta erros, mas refina o texto em ciclos (padrão: 5 iterações). A correção de uma iteração serve de entrada para a próxima, permitindo correções em camadas (do gramatical ao estilístico).
+-   **Consolidação de Erros**: O relatório final apresenta **todos** os erros únicos encontrados durante todo o processo, garantindo que o histórico completo de correções seja visível.
+-   **Verificação de Convergência**: O sistema detecta automaticamente quando o texto está "pronto" (quando novos erros param de aparecer) e encerra o ciclo de revisão antecipadamente para economizar recursos.
+-   **Múltiplos Agentes Especializados**:
+    -   **Revisor Gramatical**: Foca em correção linguística.
+    -   **Revisor Técnico**: Verifica terminologia e normas.
+    -   **Validador**: Confere se as correções propostas são seguras.
+    -   **Consistência**: Analisa contradições entre diferentes seções do documento.
 
 ## 🏗️ Arquitetura
 
@@ -17,98 +21,72 @@ Clean Architecture em 4 camadas:
 
 ```
 src/
-├── core/           # Domínio: entidades, enums, exceções, interfaces
-├── application/    # Casos de uso e orquestração
-├── infrastructure/ # IA (Gemini), PDF, relatórios, repositórios
-└── presentation/   # GUI PyQt6
+├── core/           # Domínio: entidades, enums, exceções
+├── application/    # Casos de uso (Orquestrador, RevisarSecao...)
+├── infrastructure/ # Implementações (Gemini, PDF, Repositórios)
+└── presentation/   # GUI PyQt6 (Windows/Linux/macOS)
 ```
 
 ## ⚙️ Requisitos
 
-- Python 3.10+
-- API key do Google Gemini
+-   Python 3.10+
+-   Chave de API do Google Gemini (gratuita ou paga)
 
 ## 🚀 Instalação
 
-```bash
-# Clonar o repositório
-git clone <repo-url>
-cd revisor_textos
+1.  **Clonar o repositório**
+    ```bash
+    git clone https://github.com/demusis/rev_textos.git
+    cd rev_textos
+    ```
 
-# Instalar dependências
-pip install -r requirements.txt
+2.  **Instalar dependências**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-# Configurar API key
-cp .env.example .env
-# Editar .env e definir GEMINI_API_KEY
-```
+3.  **Configurar Variáveis de Ambiente**
+    Copie o arquivo de exemplo e edite com sua chave:
+    ```bash
+    cp .env.example .env
+    # Abra o .env e insira sua GEMINI_API_KEY
+    ```
 
 ## ▶️ Uso
 
+Execute o arquivo principal para abrir a interface gráfica:
+
 ```bash
-# Executar a aplicação
 python main.py
 ```
 
-### Modo Mock (sem API key)
-
-A aplicação funciona em **modo mock** sem a API key configurada, útil para desenvolvimento e testes da interface.
+### Fluxo de Trabalho
+1.  **Carregar**: Arraste um PDF ou arquivo de texto para a área de upload.
+2.  **Configurar**: Ajuste o nível de criatividade (temperatura) ou o número máximo de iterações no menu de configurações.
+3.  **Analisar**: Clique em "Iniciar Revisão". O sistema dividirá o texto em seções e iniciará os agentes.
+4.  **Acompanhar**: Veja o progresso em tempo real, incluindo o número de erros encontrados em cada iteração.
+5.  **Resultado**: Ao final, um relatório completo (HTML/Markdown) será gerado na pasta `output/`.
 
 ## 🧪 Testes
+
+O projeto conta com uma suíte de testes automatizados:
 
 ```bash
 # Executar todos os testes
 pytest tests/ -v
-
-# Com cobertura
-pytest tests/ -v --tb=short
 ```
 
 ## 📁 Estrutura de Diretórios
 
 ```
 revisor_textos/
-├── main.py                  # Ponto de entrada
-├── requirements.txt         # Dependências
-├── .env.example             # Template de configuração
-├── src/
-│   ├── core/
-│   │   ├── entities/        # Laudo, Secao, Revisao, Erro...
-│   │   ├── enums/           # StatusLaudo, TipoErro...
-│   │   ├── exceptions/      # Hierarquia de exceções
-│   │   ├── interfaces/      # Contratos (repositories, services, gateways)
-│   │   ├── validators/      # Validadores de negócio
-│   │   └── value_objects/   # LocalizacaoErro, MetadadosPDF...
-│   ├── application/
-│   │   ├── dto/             # Data Transfer Objects
-│   │   ├── use_cases/       # ProcessarLaudo, RevisarSecao...
-│   │   └── services/        # OrquestradorRevisao
-│   ├── infrastructure/
-│   │   ├── ai/              # GeminiGateway, PromptBuilder, Agentes
-│   │   ├── pdf/             # PdfProcessor (PyPDF2)
-│   │   ├── reports/         # Geradores Markdown e HTML
-│   │   ├── repositories/    # Persistência JSON
-│   │   └── logging/         # AppLogger
-│   └── presentation/
-│       ├── main_window.py   # Janela principal
-│       ├── tema.py          # Sistema de tema/estilos
-│       ├── widgets/         # ProgressoWidget, ResultadosWidget
-│       ├── controllers/     # ControladorPrincipal
-│       └── dialogs/         # ConfigDialog
-└── tests/                   # Testes unitários
+├── main.py                  # Launcher
+├── src/                     # Código fonte
+├── tests/                   # Testes unitários e de integração
+├── config/                  # Arquivos de configuração JSON
+├── logs/                    # Logs de execução
+└── output/                  # Relatórios gerados
 ```
-
-## 🔧 Configuração
-
-Edite o arquivo `.env` ou use o menu **Configurações > Preferências** na GUI:
-
-| Parâmetro | Padrão | Descrição |
-|-----------|--------|-----------|
-| `GEMINI_API_KEY` | — | Chave da API Gemini |
-| `gemini_model` | `gemini-2.0-flash` | Modelo de IA |
-| `max_iteracoes` | `5` | Iterações por seção |
-| `limiar_convergencia` | `0.95` | Limiar para parar revisão |
-| `temperatura_revisao` | `0.3` | Temperatura do modelo |
 
 ## 📄 Licença
 
