@@ -1,38 +1,60 @@
 # 📋 Revisor de Textos Estruturados
 
-Sistema de revisão automática de textos estruturados usando inteligência artificial (Google Gemini).
+Sistema avançado de revisão automática de textos estruturados (laudos, artigos, contratos) utilizando Inteligência Artificial.
 
-O sistema processa documentos (PDF, Markdown), identifica seções e aplica múltiplos ciclos de revisão para garantir qualidade gramatical, técnica e consistência.
+O sistema processa documentos (PDF, Markdown), identifica seções e aplica múltiplos ciclos de revisão iterativa para garantir qualidade gramatical, técnica, estrutural e consistência.
 
-## 🎯 Funcionalidades Principais
+## 🚀 Funcionalidades Principais
 
--   **Revisão Iterativa com Refinamento**: O sistema não apenas aponta erros, mas refina o texto em ciclos (padrão: 5 iterações). A correção de uma iteração serve de entrada para a próxima, permitindo correções em camadas (do gramatical ao estilístico).
--   **Consolidação de Erros**: O relatório final apresenta **todos** os erros únicos encontrados durante todo o processo, garantindo que o histórico completo de correções seja visível.
--   **Verificação de Convergência**: O sistema detecta automaticamente quando o texto está "pronto" (quando novos erros param de aparecer) e encerra o ciclo de revisão antecipadamente para economizar recursos.
--   **Múltiplos Agentes Especializados**:
-    -   **Revisor Gramatical**: Foca em correção linguística.
-    -   **Revisor Técnico**: Verifica terminologia e normas.
-    -   **Validador**: Confere se as correções propostas são seguras.
-    -   **Consistência**: Analisa contradições entre diferentes seções do documento.
+### 🧠 Múltiplos Provedores de IA
+Flexibilidade total para escolher o "cérebro" da revisão:
+-   **Google Gemini**: Ótimo custo-benefício e janela de contexto massiva (padrão: `gemini-2.0-flash`).
+-   **Groq**: Velocidade extrema para inferência quase instantânea (modelos Llama 3, Mixtral).
+-   **OpenRouter**: Acesso a dezenas de outros modelos (GPT-4, Claude 3, Qwen, Mistral, etc.).
+-   **Modo Mock**: Para testes de interface sem consumo de API.
+
+### 🔄 Revisão Iterativa com Refinamento
+Diferente de revisores comuns, este sistema **refina** o texto em camadas:
+1.  O texto passa por uma primeira revisão.
+2.  A saída corrigida é usada como **entrada** para a próxima iteração.
+3.  O processo se repete (padrão: 5 iterações) ou até que o texto convirja (sem novos erros).
+Isso permite corrigir problemas profundos que só aparecem depois que a "sujeira" superficial é limpa.
+
+### 📊 Relatórios Consolidados
+O relatório final não mostra apenas o que sobrou. Ele apresenta:
+-   **Histórico Completo**: Todos os erros únicos encontrados e corrigidos durante todo o processo.
+-   **Métricas**: Total de erros, tipos de erro (gramatical, técnico, estrutural), tempo de processamento e tokens consumidos.
+-   **Formatos**: Disponível em **HTML** (interativo) e **Markdown**.
+
+### 🛠️ Controle Total (GUI)
+Interface gráfica moderna construída com PyQt6 que permite:
+-   **Configuração Dinâmica**: Seleção de modelos via API (lista modelos disponíveis na sua conta).
+-   **Ajuste Fino**: Controle de temperatura, tokens máximos, limiar de convergência (ex: parar se 95% do texto estiver ok).
+-   **Persistência**: Importe/Exporte suas configurações de revisão e prompts personalizados.
+
+---
 
 ## 🏗️ Arquitetura
 
-Clean Architecture em 4 camadas:
+Clean Architecture em 4 camadas para robustez e manutenção:
 
 ```
 src/
-├── core/           # Domínio: entidades, enums, exceções
-├── application/    # Casos de uso (Orquestrador, RevisarSecao...)
-├── infrastructure/ # Implementações (Gemini, PDF, Repositórios)
-└── presentation/   # GUI PyQt6 (Windows/Linux/macOS)
+├── core/           # Regras de Negócio (Entidades, Interfaces)
+├── application/    # Casos de Uso (Orquestração da Revisão)
+├── infrastructure/ # Implementações (Gateways de IA, PDF, Relatórios)
+└── presentation/   # Interface Gráfica (Windows/Linux/macOS)
 ```
 
-## ⚙️ Requisitos
+## ⚙️ Pré-requisitos
 
--   Python 3.10+
--   Chave de API do Google Gemini (gratuita ou paga)
+-   Python 3.10 ou superior.
+-   Chave de API de pelo menos um provedor:
+    -   [Google AI Studio](https://aistudio.google.com/)
+    -   [Groq Cloud](https://console.groq.com/)
+    -   [OpenRouter](https://openrouter.ai/)
 
-## 🚀 Instalação
+## 📦 Instalação
 
 1.  **Clonar o repositório**
     ```bash
@@ -45,47 +67,51 @@ src/
     pip install -r requirements.txt
     ```
 
-3.  **Configurar Variáveis de Ambiente**
-    Copie o arquivo de exemplo e edite com sua chave:
+3.  **Configuração (Opcional via .env)**
+    Você pode configurar via interface gráfica ou criar um arquivo `.env`:
     ```bash
     cp .env.example .env
-    # Abra o .env e insira sua GEMINI_API_KEY
+    ```
+    Exemplo de `.env`:
+    ```ini
+    GEMINI_API_KEY=sua_chave_aqui
+    GROQ_API_KEY=sua_chave_aqui
+    OPENROUTER_API_KEY=sua_chave_aqui
     ```
 
-## ▶️ Uso
+## ▶️ Como Usar
 
-Execute o arquivo principal para abrir a interface gráfica:
+Execute o arquivo principal para abrir a interface:
 
 ```bash
 python main.py
 ```
 
-### Fluxo de Trabalho
-1.  **Carregar**: Arraste um PDF ou arquivo de texto para a área de upload.
-2.  **Configurar**: Ajuste o nível de criatividade (temperatura) ou o número máximo de iterações no menu de configurações.
-3.  **Analisar**: Clique em "Iniciar Revisão". O sistema dividirá o texto em seções e iniciará os agentes.
-4.  **Acompanhar**: Veja o progresso em tempo real, incluindo o número de erros encontrados em cada iteração.
-5.  **Resultado**: Ao final, um relatório completo (HTML/Markdown) será gerado na pasta `output/`.
+### Passo a Passo
+
+1.  **Carregar Arquivo**: Arraste um PDF ou arquivo de texto para a área de upload.
+2.  **Configurações** (⚙️):
+    -   Vá na aba **IA / Provedores**.
+    -   Selecione o provedor (Gemini, Groq ou OpenRouter).
+    -   Cole sua API Key (se não estiver no .env).
+    -   O sistema buscará automaticamente os modelos disponíveis. Selecione um.
+3.  **Parâmetros**:
+    -   Ajuste **Iterações Máx.** (recomendado: 3 a 5).
+    -   Defina **Limiar de Convergência** (padrão: 0.95).
+4.  **Executar**:
+    -   Clique em **Iniciar Revisão**.
+    -   Acompanhe o progresso em tempo real na barra lateral.
+5.  **Resultados**:
+    -   Ao finalizar, o relatório HTML abrirá automaticamente.
+    -   Arquivos ficam salvos na pasta `output/`.
 
 ## 🧪 Testes
 
-O projeto conta com uma suíte de testes automatizados:
+O projeto possui alta cobertura de testes automatizados.
 
 ```bash
 # Executar todos os testes
 pytest tests/ -v
-```
-
-## 📁 Estrutura de Diretórios
-
-```
-revisor_textos/
-├── main.py                  # Launcher
-├── src/                     # Código fonte
-├── tests/                   # Testes unitários e de integração
-├── config/                  # Arquivos de configuração JSON
-├── logs/                    # Logs de execução
-└── output/                  # Relatórios gerados
 ```
 
 ## 📄 Licença
