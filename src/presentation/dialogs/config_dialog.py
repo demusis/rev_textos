@@ -581,6 +581,8 @@ class ConfigDialog(QDialog):
             os.environ["GEMINI_API_KEY"] = api_keys["gemini"]
         if api_keys.get("groq"):
             os.environ["GROQ_API_KEY"] = api_keys["groq"]
+        if api_keys.get("openrouter"):
+            os.environ["OPENROUTER_API_KEY"] = api_keys["openrouter"]
             
         self.accept()
 

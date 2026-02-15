@@ -140,6 +140,7 @@ class ControladorPrincipal(QObject):
     )
     processamento_concluido = pyqtSignal(object)
     processamento_erro = pyqtSignal(str)
+    log_recebido = pyqtSignal(str, str)  # (nivel, msg)
 
     def __init__(self) -> None:
         super().__init__()
@@ -148,6 +149,12 @@ class ControladorPrincipal(QObject):
         self._config_repo = JsonConfigRepository()
         self._logger = AppLogger()
         self._orquestrador = None
+
+        # Conectar logs detalhados à GUI
+        self._logger.log_emitter.log_message.connect(
+            self.log_recebido
+        )
+
         self._inicializar_servicos()
 
     def _inicializar_servicos(self) -> None:
@@ -160,6 +167,8 @@ class ControladorPrincipal(QObject):
             api_keys["gemini"] = os.environ.get("GEMINI_API_KEY")
         if not api_keys.get("groq") and os.environ.get("GROQ_API_KEY"):
             api_keys["groq"] = os.environ.get("GROQ_API_KEY")
+        if not api_keys.get("openrouter") and os.environ.get("OPENROUTER_API_KEY"):
+            api_keys["openrouter"] = os.environ.get("OPENROUTER_API_KEY")
         
         config["api_keys"] = api_keys
 

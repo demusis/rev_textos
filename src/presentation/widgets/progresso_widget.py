@@ -77,7 +77,7 @@ class ProgressoWidget(QWidget):
 
         self._log = QTextEdit()
         self._log.setReadOnly(True)
-        self._log.setMaximumHeight(200)
+        # self._log.setMaximumHeight(300)  <-- Removido para expansão dinâmica
         self._log.setFont(
             QFont(Tema.FONT_MONO, Tema.FONT_SIZE_SMALL)
         )
@@ -90,7 +90,7 @@ class ProgressoWidget(QWidget):
         )
         log_layout.addWidget(self._log)
 
-        layout.addWidget(log_card)
+        layout.addWidget(log_card, stretch=1)
 
     @pyqtSlot(str, float, str)
     def atualizar_progresso(
@@ -118,14 +118,37 @@ class ProgressoWidget(QWidget):
         )
 
     def _adicionar_log(self, texto: str) -> None:
-        """Adiciona entrada ao log."""
+        """Adiciona entrada ao log, padronizando formato."""
         from datetime import datetime
 
-        hora = datetime.now().strftime("%H:%M:%S")
-        cor = Tema.COR_ACCENT
+        # Formato manual para alinhar com o logger do AppLogger
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        msg_formatada = f"{ts} | INFO     | GUI      | {texto}"
+        
+        # Reutiliza lógica de exibição
+        self.adicionar_log_detalhado("INFO", msg_formatada)
+
+    @pyqtSlot(str, str)
+    def adicionar_log_detalhado(
+        self, nivel: str, mensagem: str
+    ) -> None:
+        """Adiciona log detalhado vindo do sistema de logging.
+
+        Args:
+            nivel: Nível do log (INFO, WARNING, ERROR)
+            mensagem: Mensagem formatada
+        """
+        cores = {
+            "DEBUG": "#888888",
+            "INFO": Tema.TEXTO_PRIMARIO,  # Padronizado para cor de texto normal
+            "WARNING": "#FFA500",
+            "ERROR": "#FF4444",
+            "CRITICAL": "#FF0000",
+        }
+        cor = cores.get(nivel, Tema.TEXTO_PRIMARIO)
         self._log.append(
             f'<span style="color:{cor}">'
-            f"[{hora}]</span> {texto}"
+            f"{mensagem}</span>"
         )
         # Auto-scroll
         sb = self._log.verticalScrollBar()

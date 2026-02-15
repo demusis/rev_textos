@@ -134,7 +134,12 @@ class OpenRouterGateway(IAIGateway):
         try:
             logger.info(
                 f"[{origem}] 📡 OpenRouter: "
-                f"{self._model_name} | Temp: {temperatura}"
+                f"{self._model_name} | Temp: {temperatura} "
+                f"| Tokens máx: {max_tokens}"
+            )
+            logger.info(
+                f"[{origem}] ⏳ Aguardando resposta da IA "
+                f"(timeout: {self._timeout}s)..."
             )
 
             async with httpx.AsyncClient(
@@ -147,6 +152,10 @@ class OpenRouterGateway(IAIGateway):
                 )
 
             elapsed = time.time() - inicio
+            logger.info(
+                f"[{origem}] ✅ Resposta recebida em "
+                f"{elapsed:.1f}s (HTTP {response.status_code})"
+            )
 
             # Tratar erros HTTP
             if response.status_code == 401:
@@ -275,8 +284,9 @@ class OpenRouterGateway(IAIGateway):
             return []
 
         if not self._api_key:
-            logger.warning(
-                "Chave do OpenRouter não configurada."
+            logger.debug(
+                "OpenRouter: chave não configurada "
+                "(ignorando listagem de modelos)."
             )
             return []
 

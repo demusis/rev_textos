@@ -246,18 +246,27 @@ class GeminiGateway(IAIGateway):
                 logger.info(
                     f"[{origem}] 📡 Modelo: {self._model_name} "
                     f"| Tentativa {tentativa}/{self._max_retries} "
-                    f"| Temp: {temperatura}"
+                    f"| Temp: {temperatura} "
+                    f"| Tokens máx: {max_tokens}"
                 )
                 logger.info(
-                    f"[{origem}]    Prompt ({len(prompt_completo)} chars): "
-                    f"{prompt_completo[:120]}..."
+                    f"[{origem}] ⏳ Aguardando resposta da IA "
+                    f"({len(prompt_completo)} chars enviados, "
+                    f"timeout: {self._timeout}s)..."
                 )
                 
+                _inicio_req = time.time()
                 resultado = await self._executar_request(
                     prompt_completo,
                     temperatura,
                     max_tokens,
                     stop_sequences,
+                )
+                _tempo_req = time.time() - _inicio_req
+                logger.info(
+                    f"[{origem}] ✅ Resposta recebida em "
+                    f"{_tempo_req:.1f}s "
+                    f"({len(resultado)} chars)"
                 )
 
                 # Armazenar em cache
@@ -268,9 +277,10 @@ class GeminiGateway(IAIGateway):
                 if tentativa < self._max_retries:
                     espera = 2**tentativa
                     logger.warning(
-                        f"Rate limit. Aguardando "
-                        f"{espera}s (tentativa "
-                        f"{tentativa})"
+                        f"[{origem}] ⚠️ Rate limit. "
+                        f"Aguardando {espera}s "
+                        f"(tentativa {tentativa}/"
+                        f"{self._max_retries})"
                     )
                     await asyncio.sleep(espera)
                 else:

@@ -6,6 +6,7 @@ usando agentes de IA até atingir convergência.
 """
 
 from typing import Optional, Dict, Any
+import time
 
 from ....core.entities.secao import Secao
 from ....core.entities.texto_estruturado import TextoEstruturado
@@ -121,8 +122,18 @@ class RevisarSecaoUseCase:
 
             # Executar revisão com agente
             try:
+                inicio_ia = time.time()
+                self._logger.info(
+                    f"  [{nome_agente}] ⏳ Enviando à IA "
+                    f"({len(texto_atual)} chars)..."
+                )
                 revisao = await self._agente.processar(
                     secao, config
+                )
+                tempo_ia = time.time() - inicio_ia
+                self._logger.info(
+                    f"  [{nome_agente}] ✅ Resposta da IA "
+                    f"recebida em {tempo_ia:.1f}s"
                 )
             except InvalidResponseException as e:
                 self._logger.warning(

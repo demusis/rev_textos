@@ -46,16 +46,17 @@ class AnalysisWidget(QWidget):
         # Manteremos simples por enquanto
 
         # Progresso
+        # Progresso (expande para ocupar espaço)
         self.progresso = ProgressoWidget()
-        layout.addWidget(self.progresso)
+        layout.addWidget(self.progresso, stretch=1)
 
         # Resultados (inicialmente oculto ou vazio)
         self.resultados = ResultadosWidget()
         self.resultados.relatorio_solicitado.connect(
             self.relatorio_solicitado
         )
-        # O resultado expande para ocupar o resto
-        layout.addWidget(self.resultados, stretch=1)
+        # O resultado (botões) fica no fundo com tamanho fixo
+        layout.addWidget(self.resultados)
 
     def resetar(self) -> None:
         """Reseta widgets internos."""

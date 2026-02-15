@@ -105,6 +105,10 @@ class MainWindow(QMainWindow):
         self._controlador.processamento_erro.connect(
             self._on_processamento_erro
         )
+        # Logs detalhados na janela de atividades
+        self._controlador.log_recebido.connect(
+            self._analysis.progresso.adicionar_log_detalhado
+        )
 
     def _mudar_pagina(self, index: int) -> None:
         """Alterna página exibida na pilha."""
@@ -199,8 +203,10 @@ class MainWindow(QMainWindow):
             "Sobre",
             "<h2>Revisor de Textos Estruturados</h2>"
             "<p>v1.1.0 (Clean UI)</p>"
-            "<p>Interface moderna e sóbria para revisão "
-            "automática de textos estruturados com IA.</p>"
+            "<p>Sistema automatizado para análise, correção "
+            "gramatical e validação técnica de textos "
+            "estruturados, utilizando modelos de inteligência "
+            "artificial generativa.</p>"
         )
         self._sidebar.btn_ajuda.setChecked(False)
 
