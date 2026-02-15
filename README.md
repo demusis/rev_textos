@@ -1,32 +1,32 @@
-# 📋 Revisor de Textos Estruturados
+# Revisor de Textos Estruturados
 
 Sistema avançado de revisão automática de textos estruturados (laudos, artigos, contratos) utilizando Inteligência Artificial.
 
 O sistema processa documentos (PDF, Markdown), identifica seções e aplica múltiplos ciclos de revisão iterativa para garantir qualidade gramatical, técnica, estrutural e consistência.
 
-## 🚀 Funcionalidades Principais
+## Funcionalidades Principais
 
-### 🧠 Múltiplos Provedores de IA
+### Múltiplos Provedores de IA
 Flexibilidade total para escolher o "cérebro" da revisão:
 -   **Google Gemini**: Ótimo custo-benefício e janela de contexto massiva (padrão: `gemini-2.0-flash`).
 -   **Groq**: Velocidade extrema para inferência quase instantânea (modelos Llama 3, Mixtral).
 -   **OpenRouter**: Acesso a dezenas de outros modelos (GPT-4, Claude 3, Qwen, Mistral, etc.).
 -   **Modo Mock**: Para testes de interface sem consumo de API.
 
-### 🔄 Revisão Iterativa com Refinamento
+### Revisão Iterativa com Refinamento
 Diferente de revisores comuns, este sistema **refina** o texto em camadas:
 1.  O texto passa por uma primeira revisão.
 2.  A saída corrigida é usada como **entrada** para a próxima iteração.
 3.  O processo se repete (padrão: 5 iterações) ou até que o texto convirja (sem novos erros).
 Isso permite corrigir problemas profundos que só aparecem depois que a "sujeira" superficial é limpa.
 
-### 📊 Relatórios Consolidados
+### Relatórios Consolidados
 O relatório final não mostra apenas o que sobrou. Ele apresenta:
 -   **Histórico Completo**: Todos os erros únicos encontrados e corrigidos durante todo o processo.
 -   **Métricas**: Total de erros, tipos de erro (gramatical, técnico, estrutural), tempo de processamento e tokens consumidos.
 -   **Formatos**: Disponível em **HTML** (interativo) e **Markdown**.
 
-### 🛠️ Controle Total (GUI)
+### Controle Total (GUI)
 Interface gráfica moderna construída com PyQt6 que permite:
 -   **Configuração Dinâmica**: Seleção de modelos via API (lista modelos disponíveis na sua conta).
 -   **Ajuste Fino**: Controle de temperatura, tokens máximos, limiar de convergência (ex: parar se 95% do texto estiver ok).
@@ -34,7 +34,7 @@ Interface gráfica moderna construída com PyQt6 que permite:
 
 ---
 
-## 🏗️ Arquitetura
+## Arquitetura
 
 Clean Architecture em 4 camadas para robustez e manutenção:
 
@@ -46,7 +46,7 @@ src/
 └── presentation/   # Interface Gráfica (Windows/Linux/macOS)
 ```
 
-## ⚙️ Pré-requisitos
+## Pré-requisitos
 
 -   Python 3.10 ou superior.
 -   Chave de API de pelo menos um provedor:
@@ -54,7 +54,7 @@ src/
     -   [Groq Cloud](https://console.groq.com/)
     -   [OpenRouter](https://openrouter.ai/)
 
-## 📦 Instalação
+## Instalação
 
 1.  **Clonar o repositório**
     ```bash
@@ -79,7 +79,7 @@ src/
     OPENROUTER_API_KEY=sua_chave_aqui
     ```
 
-## ▶️ Como Usar
+## Como Usar
 
 Execute o arquivo principal para abrir a interface:
 
@@ -105,15 +105,3 @@ python main.py
     -   Ao finalizar, o relatório HTML abrirá automaticamente.
     -   Arquivos ficam salvos na pasta `output/`.
 
-## 🧪 Testes
-
-O projeto possui alta cobertura de testes automatizados.
-
-```bash
-# Executar todos os testes
-pytest tests/ -v
-```
-
-## 📄 Licença
-
-Uso interno — todos os direitos reservados.
