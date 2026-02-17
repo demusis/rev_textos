@@ -1,18 +1,38 @@
 {
-  "gemini_model": "gemini-2.0-flash",
+  "gemini_model": "gemini-2.0-flash-lite",
   "max_retries": 3,
-  "timeout": 120,
+  "timeout": 30,
   "requests_per_minute": 60,
   "temperatura_revisao": 0.3,
   "temperatura_validacao": 0.2,
   "max_iteracoes": 5,
   "limiar_convergencia": 0.95,
-  "max_tokens_revisao": 4096,
+  "max_tokens_revisao": 32768,
   "diretorio_saida": "./output",
   "diretorio_dados": "./data",
   "formatos_relatorio": [
     "markdown",
     "html"
   ],
-  "logging_level": "INFO"
+  "logging_level": "INFO",
+  "provider": "gemini",
+  "api_keys": {
+    "gemini": "sua_chave_api_aqui",
+    "groq": "",
+    "openrouter": ""
+  },
+  "gemini_api_key": "sua_chave_api_aqui",
+  "model_gemini": "gemini-2.0-flash-lite",
+  "model_groq": "llama-3.3-70b-versatile",
+  "model_openrouter": "google/gemini-2.5-flash-preview-05-20",
+  "modo_processamento": "texto_completo",
+  "modo_mock": false,
+  "prompts": {
+    "revisao_gramatical": "Você é um revisor linguístico especialista em português brasileiro.\nAnalise o seguinte trecho de um texto estruturado e identifique TODOS\nos erros gramaticais, ortográficos e de concordância.\n\nPara cada erro encontrado, forneça:\n1. Trecho original com erro\n2. Correção sugerida\n3. Tipo do erro (gramatical, ortografico, concordancia)\n4. Justificativa técnica\n\nTexto para revisão:\n{texto}\n\nResponda em formato JSON com a seguinte estrutura:\n{{\n  \"erros\": [\n    {{\n      \"trecho_original\": \"...\",\n      \"sugestao_correcao\": \"...\",\n      \"tipo\": \"gramatical|ortografico|concordancia\",\n      \"justificativa\": \"...\",\n      \"severidade\": 1-5\n    }}\n  ],\n  \"texto_revisado\": \"texto completo com correções aplicadas\"\n}}",
+    "revisao_tecnica": "Você é um perito criminal com vasta experiência em textos estruturados.\nAnalise o seguinte trecho de um texto estruturado e identifique\nproblemas técnicos, incluindo:\n\n- Inconsistências lógicas ou factuais\n- Terminologia técnica incorreta ou imprecisa\n- Falta de fundamentação científica\n- Conclusões não suportadas pelas evidências\n- Referências normativas incorretas\n\nTexto para revisão:\n{texto}\n\nResponda em formato JSON:\n{{\n  \"erros\": [\n    {{\n      \"trecho_original\": \"...\",\n      \"sugestao_correcao\": \"...\",\n      \"tipo\": \"tecnico|inconsistencia|terminologia|fundamentacao\",\n      \"justificativa\": \"...\",\n      \"severidade\": 1-5\n    }}\n  ],\n  \"texto_revisado\": \"texto completo com correções\"\n}}",
+    "revisao_estrutural": "Você é um especialista em redação técnica e textos estruturados.\nAnalise a estrutura do seguinte trecho, verificando:\n\n- Coesão e coerência textual\n- Organização lógica dos argumentos\n- Clareza e objetividade da redação\n- Formatação adequada para texto estruturado\n- Completude das informações necessárias\n\nTexto para revisão:\n{texto}\n\nResponda em formato JSON:\n{{\n  \"erros\": [\n    {{\n      \"trecho_original\": \"...\",\n      \"sugestao_correcao\": \"...\",\n      \"tipo\": \"estrutural|coesao|clareza|formatacao\",\n      \"justificativa\": \"...\",\n      \"severidade\": 1-5\n    }}\n  ],\n  \"texto_revisado\": \"texto completo com correções\"\n}}",
+    "validacao": "Você é um revisor sênior de textos estruturados.\nCompare o texto original com a versão revisada e avalie\nse as correções propostas são adequadas.\n\nTexto original:\n{texto_original}\n\nTexto revisado:\n{texto_revisado}\n\nCorreções aplicadas:\n{correcoes}\n\nPara cada correção, indique se está:\n- CORRETA: a correção melhora o texto\n- INCORRETA: a correção introduz erro\n- DESNECESSARIA: o texto original estava correto\n\nResponda em formato JSON:\n{{\n  \"avaliacoes\": [\n    {{\n      \"correcao\": \"...\",\n      \"status\": \"correta|incorreta|desnecessaria\",\n      \"justificativa\": \"...\"\n    }}\n  ],\n  \"aprovado\": true/false\n}}",
+    "consistencia": "Você é um especialista em análise de consistência documental.\nAnalise as seguintes seções de um texto estruturado e identifique\ninconsistências entre elas.\n\nVerifique:\n- Contradições entre seções\n- Dados divergentes (datas, nomes, valores)\n- Referências cruzadas incorretas\n- Conclusões incompatíveis com a metodologia\n\nSeções do texto:\n{secoes}\n\nResponda em formato JSON:\n{{\n  \"inconsistencias\": [\n    {{\n      \"secao_1\": \"título da seção\",\n      \"secao_2\": \"título da seção\",\n      \"descricao\": \"...\",\n      \"severidade\": 1-5,\n      \"sugestao\": \"...\"\n    }}\n  ],\n  \"consistente\": true/false,\n  \"resumo\": \"resumo da análise\"\n}}",
+    "sintese": "Você é um redator técnico especializado em textos estruturados.\nGere um resumo executivo das revisões realizadas no texto.\n\nInclua:\n- Total de erros por categoria\n- Seções com mais problemas\n- Avaliação geral da qualidade\n- Recomendações prioritárias\n\nDados do processamento:\n{dados}\n\nResponda em texto corrido em português brasileiro,\ncom parágrafos claros e objetivos."
+  }
 }

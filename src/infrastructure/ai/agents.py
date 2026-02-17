@@ -20,8 +20,8 @@ from ...core.enums.tipo_erro import TipoErro
 from ...core.exceptions.agent_exceptions import (
     InvalidResponseException,
 )
-from .gemini_gateway import GeminiGateway
 from .prompt_builder import PromptBuilder
+from ...core.interfaces.gateways.i_ai_gateway import IAIGateway
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,12 @@ class AgenteRevisor(IAIAgent):
     Agente de revisão de texto.
 
     Realiza revisão gramatical, técnica e estrutural
-    usando o modelo Gemini.
+    usando modelos de IA.
     """
 
     def __init__(
         self,
-        gateway: GeminiGateway,
+        gateway: IAIGateway,
         prompt_builder: PromptBuilder,
         tipo_revisao: str = "revisao_gramatical",
     ) -> None:
@@ -75,8 +75,11 @@ class AgenteRevisor(IAIAgent):
             tipo, texto=texto_para_revisao
         )
 
+        info_ia = self._gateway.obter_info_modelo()
+        provedor = info_ia.get("provedor", "IA")
+
         logger.info(
-            f"    Enviando {len(prompt)} chars ao Gemini..."
+            f"    Enviando {len(prompt)} chars ao {provedor}..."
         )
 
         # Chamar API
@@ -139,16 +142,21 @@ class AgenteRevisor(IAIAgent):
         )
 
         try:
-            # Limpar eventual markdown
-            json_str = resposta
+            # Seleção robusta do bloco JSON (caso a IA mande conversa antes/depois)
+            json_str = resposta.strip()
+            
+            # Tenta encontrar o primeiro '{' e o último '}'
+            idx_start = json_str.find('{')
+            idx_end = json_str.rfind('}')
+            
+            if idx_start != -1 and idx_end != -1:
+                json_str = json_str[idx_start:idx_end+1]
+            
+            # Limpar blocos de código markdown se ainda existirem
             if "```json" in json_str:
-                json_str = json_str.split(
-                    "```json"
-                )[1].split("```")[0]
+                json_str = json_str.split("```json")[-1].split("```")[0]
             elif "```" in json_str:
-                json_str = json_str.split(
-                    "```"
-                )[1].split("```")[0]
+                json_str = json_str.split("```")[-1].split("```")[0]
 
             dados = json.loads(json_str.strip())
 
@@ -157,18 +165,23 @@ class AgenteRevisor(IAIAgent):
                 tipo = self._mapear_tipo_erro(
                     erro_data.get("tipo", "outro")
                 )
+                # Fallback em cascata para garantir descrição não vazia
+                descricao = (
+                    erro_data.get("justificativa") or 
+                    erro_data.get("descricao") or 
+                    erro_data.get("tipo") or 
+                    "Ajuste sugerido pela IA"
+                )
+                
+                # Garantir que trecho_original tenha algo (fallback pro texto da seção se nulo)
+                trecho_orig = erro_data.get("trecho_original") or ""
+                sugestao = erro_data.get("sugestao_correcao") or ""
+
                 erro = Erro(
                     tipo=tipo,
-                    descricao=erro_data.get(
-                        "justificativa",
-                        erro_data.get("tipo", ""),
-                    ),
-                    trecho_original=erro_data.get(
-                        "trecho_original", ""
-                    ),
-                    sugestao_correcao=erro_data.get(
-                        "sugestao_correcao", ""
-                    ),
+                    descricao=descricao,
+                    trecho_original=trecho_orig,
+                    sugestao_correcao=sugestao,
                     severidade=min(
                         5,
                         max(
@@ -183,15 +196,9 @@ class AgenteRevisor(IAIAgent):
                 revisao.adicionar_erro(erro)
 
                 correcao = Correcao(
-                    texto_original=erro_data.get(
-                        "trecho_original", ""
-                    ),
-                    texto_corrigido=erro_data.get(
-                        "sugestao_correcao", ""
-                    ),
-                    justificativa=erro_data.get(
-                        "justificativa", ""
-                    ),
+                    texto_original=trecho_orig,
+                    texto_corrigido=sugestao,
+                    justificativa=descricao,
                     agente_origem=self.obter_nome(),
                 )
                 revisao.adicionar_correcao(correcao)
@@ -265,7 +272,7 @@ class AgenteValidador(IAIAgent):
 
     def __init__(
         self,
-        gateway: GeminiGateway,
+        gateway: IAIGateway,
         prompt_builder: PromptBuilder,
     ) -> None:
         self._gateway = gateway
@@ -336,7 +343,7 @@ class AgenteConsistencia(IAIAgent):
 
     def __init__(
         self,
-        gateway: GeminiGateway,
+        gateway: IAIGateway,
         prompt_builder: PromptBuilder,
     ) -> None:
         self._gateway = gateway
@@ -376,7 +383,58 @@ class AgenteConsistencia(IAIAgent):
         logger.info(
             f"━━━ FIM fase 'consistência'{mock_tag}"
         )
-        return resultado
+        return self._formatar_consistencia(resultado)
+
+    def _formatar_consistencia(self, resposta_json: str) -> str:
+        """Formata resposta JSON em Markdown legível."""
+        try:
+            # Limpeza básica de markdown
+            json_str = resposta_json.strip()
+            if "```json" in json_str:
+                json_str = json_str.split("```json")[-1].split("```")[0]
+            elif "```" in json_str:
+                json_str = json_str.split("```")[-1].split("```")[0]
+            
+            dados = json.loads(json_str.strip())
+            
+            lines = []
+            
+            # Resumo
+            if "resumo" in dados:
+                lines.append(f"**Resumo da Análise**\n{dados['resumo']}\n")
+            
+            # Status
+            consistente = dados.get("consistente", False)
+            status_exibicao = "✅ Consistente" if consistente else "⚠️ Inconsistências Encontradas"
+            lines.append(f"**Status Global**: {status_exibicao}\n")
+            
+            # Inconsistências
+            inconsistencias = dados.get("inconsistencias", [])
+            if inconsistencias:
+                lines.append("**Detalhes:**\n")
+                for i, inc in enumerate(inconsistencias, 1):
+                    sev = inc.get("severidade", 1)
+                    icone = "🔴" if sev >= 4 else "🟠" if sev == 3 else "🟡"
+                    
+                    desc = inc.get("descricao", "Sem descrição")
+                    lines.append(f"{i}. {icone} **{desc}**")
+                    
+                    locais = []
+                    if "secao_1" in inc: locais.append(f"'{inc['secao_1']}'")
+                    if "secao_2" in inc: locais.append(f"'{inc['secao_2']}'")
+                    
+                    if locais:
+                        lines.append(f"   - *Local*: {' e '.join(locais)}")
+                    
+                    if "sugestao" in inc:
+                        lines.append(f"   - *Sugestão*: {inc['sugestao']}")
+                    lines.append("")
+            
+            return "\n".join(lines)
+
+        except Exception:
+            # Se falhar o parse, retorna o original (fallback)
+            return resposta_json
 
     def obter_nome(self) -> str:
         return "consistencia"

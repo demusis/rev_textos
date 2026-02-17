@@ -103,13 +103,23 @@ class GroqGateway(IAIGateway):
 
         inicio = time.time()
         try:
-            logger.info(f"[{origem}] 📡 Groq: {self._model_name} | Temp: {temperatura}")
+            # Ajuste automático de max_tokens
+            tokens_to_use = max_tokens
+            if tokens_to_use == 0:
+                # Groq tem limites por modelo
+                if "mixtral" in self._model_name.lower():
+                    tokens_to_use = 32768
+                else:
+                    tokens_to_use = 8192
+                logger.debug(f"[{origem}] Max tokens ajustado automaticamente para: {tokens_to_use}")
+
+            logger.info(f"[{origem}] 📡 Groq: {self._model_name} | Temp: {temperatura} | Tokens máx: {tokens_to_use}")
             
             chat_completion = await self._client.chat.completions.create(
                 messages=messages,
                 model=self._model_name,
                 temperature=temperatura,
-                max_tokens=max_tokens,
+                max_tokens=tokens_to_use,
                 stop=stop_sequences,
             )
 

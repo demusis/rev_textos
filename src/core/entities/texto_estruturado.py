@@ -66,9 +66,11 @@ class TextoEstruturado:
     historico: List[Dict[str, Any]] = field(
         default_factory=list
     )
-    info_ia: Dict[str, str] = field(
+    info_ia: Dict[str, Any] = field(
         default_factory=dict
     )
+    analise_consistencia: Optional[str] = None
+    sintese_geral: Optional[str] = None
     _secoes_index: Dict[str, Secao] = field(
         default_factory=dict, init=False, repr=False
     )
@@ -360,6 +362,8 @@ class TextoEstruturado:
             "tamanho_bytes": self.tamanho_bytes,
             "numero_paginas": self.numero_paginas,
             "historico": self.historico,
+            "analise_consistencia": self.analise_consistencia,
+            "sintese_geral": self.sintese_geral,
         }
 
     @classmethod
@@ -388,6 +392,9 @@ class TextoEstruturado:
             ),
             historico=data.get("historico", []),
         )
+        texto.analise_consistencia = data.get("analise_consistencia")
+        texto.sintese_geral = data.get("sintese_geral")
+        
         for secao_data in data.get("secoes", []):
             secao = Secao.from_dict(secao_data)
             texto.adicionar_secao(secao)

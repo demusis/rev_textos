@@ -81,6 +81,16 @@ class WorkerProcessamento(QThread):
         self._orquestrador = orquestrador
         self._caminho_arquivo = caminho_arquivo
         self._formatos = formatos
+        self._interromper = False
+    
+    def parar(self) -> None:
+        """Sinaliza para interromper o processamento."""
+        self._interromper = True
+
+    def _check_cancel(self) -> None:
+        """Verifica se o cancelamento foi solicitado."""
+        if self._interromper:
+            raise Exception("Processamento interrompido pelo usuário.")
 
     def run(self) -> None:
         """Executa processamento em thread."""
@@ -104,6 +114,7 @@ class WorkerProcessamento(QThread):
                     callback_progresso=(
                         callback_progresso
                     ),
+                    check_cancel=self._check_cancel,
                 )
             )
 
@@ -195,30 +206,104 @@ class ControladorPrincipal(QObject):
         )
 
         # Geradores de relatório
-        geradores = {
+        self._geradores = {
             "markdown": MarkdownReportGenerator(),
             "html": HtmlReportGenerator(),
         }
 
         # Repositório
-        texto_repo = JsonTextoRepository(
+        self._texto_repo = JsonTextoRepository(
             diretorio=config.get(
                 "diretorio_dados", "./data/textos"
             )
         )
 
-        # Orquestrador
+        # Orquestrador inicial (usando config padrão da inicialização)
+        self._recriar_orquestrador()
+
+    def _recriar_orquestrador(self) -> None:
+        """Recria o orquestrador com base no mapeamento de fases."""
+        config_base = self._config_repo.carregar_configuracao()
+        perfis = config_base.get("ai_profiles", {})
+        mapping = config_base.get("phase_mapping", {})
+        
+        # 1. Preparar configs para cada perfil
+        configs = {}
+        for nome_perfil in ["simples", "padrao", "complexo"]:
+            cfg = dict(config_base) # Cópia base
+            perfil_data = perfis.get(nome_perfil, {})
+            
+            if perfil_data.get("provider"):
+                cfg["provider"] = perfil_data["provider"]
+            if perfil_data.get("model"):
+                p = cfg["provider"]
+                if p == "gemini": cfg["model_gemini"] = perfil_data["model"]
+                elif p == "groq": cfg["model_groq"] = perfil_data["model"]
+                elif p == "openrouter": cfg["model_openrouter"] = perfil_data["model"]
+            if perfil_data.get("temperatura"):
+                cfg["temperatura_revisao"] = perfil_data["temperatura"]
+            
+            configs[nome_perfil] = cfg
+
+        # 2. Criar Gateways
+        from ...infrastructure.ai.ai_gateway_factory import AIGatewayFactory
+        gateways = {
+            "simples": AIGatewayFactory.criar(configs["simples"]),
+            "padrao": AIGatewayFactory.criar(configs["padrao"]),
+            "complexo": AIGatewayFactory.criar(configs["complexo"]),
+        }
+        
+        # Gateway principal (usado para validações gerais)
+        # Usamos o padrão como fallback
+        self._gateway = gateways["padrao"]
+        prompt_builder = PromptBuilder()
+
+        # 3. Determinar fases ativas pelo mapeamento em si
+        def get_gateway_for_phase(fase_key: str):
+            perfil_mapeado = mapping.get(fase_key)
+            if not perfil_mapeado: return None # Desativado
+            return gateways.get(perfil_mapeado)
+
+        # Construir lista de agentes revisores
+        agentes_revisores = []
+        
+        gw_gramatical = get_gateway_for_phase("gramatical")
+        if gw_gramatical:
+            agentes_revisores.append(AgenteRevisor(
+                gw_gramatical, prompt_builder, tipo_revisao="revisao_gramatical"
+            ))
+            
+        gw_tecnica = get_gateway_for_phase("tecnica")
+        if gw_tecnica:
+             agentes_revisores.append(AgenteRevisor(
+                gw_tecnica, prompt_builder, tipo_revisao="revisao_tecnica"
+            ))
+            
+        gw_estrutural = get_gateway_for_phase("estrutural")
+        if gw_estrutural:
+             agentes_revisores.append(AgenteRevisor(
+                gw_estrutural, prompt_builder, tipo_revisao="revisao_estrutural"
+            ))
+        
+        # Agentes opcionais
+        agente_validador = None
+        gw_validacao = get_gateway_for_phase("validacao")
+        if gw_validacao:
+            agente_validador = AgenteValidador(gw_validacao, prompt_builder)
+            
+        agente_consistencia = None
+        gw_consistencia = get_gateway_for_phase("consistencia")
+        if gw_consistencia:
+            agente_consistencia = AgenteConsistencia(gw_consistencia, prompt_builder)
+
         self._orquestrador = OrquestradorRevisao(
             pdf_processor=PdfProcessor(),
-            agentes_revisores=[
-                agente_gramatical,
-                agente_tecnico,
-            ],
+            agentes_revisores=agentes_revisores,
             agente_validador=agente_validador,
             agente_consistencia=agente_consistencia,
-            texto_repo=texto_repo,
+            texto_repo=self._texto_repo,
             config_repo=self._config_repo,
-            geradores_relatorio=geradores,
+            geradores_relatorio=self._geradores,
             logger=self._logger,
         )
 
@@ -244,6 +329,10 @@ class ControladorPrincipal(QObject):
             )
             return
 
+        if not self._orquestrador:
+             self.processamento_erro.emit("IA não configurada corretamente.")
+             return
+
         self._worker = WorkerProcessamento(
             self._orquestrador,
             caminho_arquivo,
@@ -259,6 +348,13 @@ class ControladorPrincipal(QObject):
             self._on_erro
         )
         self._worker.start()
+
+    @pyqtSlot()
+    def interromper_processamento(self) -> None:
+        """Interrompe o processamento atual."""
+        if self._worker and self._worker.isRunning():
+            self._logger.warning("Solicitando interrupção do processamento...")
+            self._worker.parar()
 
     @pyqtSlot(object)
     def _on_concluido(self, resultado) -> None:

@@ -83,6 +83,9 @@ class MainWindow(QMainWindow):
         self._analysis.relatorio_solicitado.connect(
             self._abrir_relatorio
         )
+        self._analysis.cancelar_processamento.connect(
+            self._controlador.interromper_processamento
+        )
         self._stack.addWidget(self._analysis)
 
         layout.addWidget(self._stack)
@@ -92,7 +95,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self._status_bar)
         self._status_bar.showMessage("Pronto")
         
-        self._atualizar_info_provedor()
+        self._status_bar.showMessage("Pronto")
 
     def _conectar_sinais(self) -> None:
         """Conecta sinais globalmente."""
@@ -150,6 +153,20 @@ class MainWindow(QMainWindow):
 
     def _on_processamento_erro(self, mensagem: str) -> None:
         """Callback de erro."""
+        if "Cancelamento solicitado" in mensagem or "interrompido" in mensagem.lower():
+             self._status_bar.showMessage("Processamento interrompido")
+             self._analysis.progresso.atualizar_progresso(
+                 "cancelado", 0, "Processamento interrompido pelo usuário."
+             )
+             self._analysis.progresso.set_cancelar_habilitado(False, "Interrompido")
+             # Não volta pra home imediatamente, deixa o usuário ver o log
+             QMessageBox.information(
+                 self, "Interrompido", "O processamento foi interrompido com sucesso."
+             )
+             # Opcional: Voltar para home após um tempo ou por ação do usuário
+             # Por consistência com erro, vamos manter na tela de análise para ver logs
+             return
+
         self._status_bar.showMessage("Erro no processamento")
         self._stack.setCurrentIndex(0)  # Volta à Home
         self._home.habilitar_processar(True)
@@ -164,19 +181,11 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             nova_config = dialog.obter_config()
             self._controlador.salvar_configuracao(nova_config)
-            self._atualizar_info_provedor()
+            self._controlador.salvar_configuracao(nova_config)
             self._status_bar.showMessage("Configurações salvas")
         
         # Remove seleção do botão
         self._sidebar.btn_config.setChecked(False)
-
-    def _atualizar_info_provedor(self) -> None:
-        """Atualiza info do provedor na Home."""
-        config = self._controlador.obter_configuracao()
-        provider = config.get("provider", "gemini").capitalize()
-        model_key = f"model_{provider.lower()}"
-        model = config.get(model_key, config.get("gemini_model", "?"))
-        self._home.definir_info_provedor(provider, model)
 
     def _abrir_relatorio(self, formato: str) -> None:
         """Abre relatório no app padrão."""

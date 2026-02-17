@@ -57,6 +57,8 @@ CSS_STYLES = """
     .footer { margin-top: 40px; padding-top: 20px;
         border-top: 1px solid #ddd; color: #999;
         font-size: 0.8em; text-align: center; }
+    ul, ol { margin-left: 20px; margin-bottom: 10px; }
+    li { margin-bottom: 5px; }
 </style>
 """
 
@@ -101,7 +103,67 @@ class HtmlReportGenerator(IReportGenerator):
             f"<strong>{texto.nome_arquivo}</strong>"
             f" — {datetime.now():%d/%m/%Y %H:%M}"
         )
-        if texto.info_ia:
+
+        # Seção de Informações da IA (Detalhada)
+        info_ia = texto.info_ia
+        perfis = info_ia.get("perfis", {})
+        fases = info_ia.get("fases", {})
+
+        if perfis and isinstance(perfis, dict):
+             # Estilo inline para a caixa de detalhes da IA
+            partes.append(
+                "<div style='margin-top: 15px; padding: 12px; background: #f8f9fa; "
+                "border-radius: 6px; border: 1px solid #e9ecef; font-size: 0.9em;'>"
+            )
+            
+            # 1. Lista de Modelos (Perfis)
+            partes.append(
+                "<div style='margin-bottom: 8px;'>"
+                "<strong style='color: #2c3e50;'>🧠 Modelos por Complexidade:</strong>"
+                "<ul style='margin: 5px 0 0 20px; color: #444;'>"
+            )
+            for nome_perfil, dados in perfis.items():
+                prov = dados.get('provider', '?').capitalize()
+                mod = dados.get('model', '?')
+                nome_p = nome_perfil.capitalize()
+                partes.append(
+                    f"<li><strong>{nome_p}:</strong> {prov} "
+                    f"<span style='color: #777;'>({mod})</span></li>"
+                )
+            partes.append("</ul></div>")
+
+            # 2. Mapeamento de Fases
+            if fases:
+                partes.append(
+                    "<div>"
+                    "<strong style='color: #2c3e50;'>⚙️ Complexidade por Fase:</strong>"
+                    "<div style='margin-top: 5px; display: flex; flex-wrap: wrap; gap: 8px;'>"
+                )
+                
+                # Mapa de labels amigáveis
+                labels_fase = {
+                    "gramatical": "Gramatical",
+                    "tecnica": "Técnica",
+                    "estrutural": "Estrutural",
+                    "validacao": "Validação",
+                    "consistencia": "Consistência",
+                    "sintese": "Síntese"
+                }
+
+                for fase_key, perfil_key in fases.items():
+                    label = labels_fase.get(fase_key, fase_key.capitalize())
+                    perfil_fmt = perfil_key.capitalize()
+                    partes.append(
+                        f"<span style='background: white; border: 1px solid #ced4da; "
+                        f"padding: 2px 8px; border-radius: 12px; font-size: 0.85em; color: #495057;'>"
+                        f"<b>{label}:</b> {perfil_fmt}</span>"
+                    )
+                partes.append("</div></div>")
+            
+            partes.append("</div>") # Fecha container IA
+
+        elif texto.info_ia:
+            # Fallback para formato antigo
             partes.append(
                 f" — IA: {texto.info_ia.get('provedor')} "
                 f"({texto.info_ia.get('modelo')})"
@@ -129,11 +191,33 @@ class HtmlReportGenerator(IReportGenerator):
             f"{total_erros}</span></td></tr>"
             f"<tr><td>Status</td>"
             f"<td>{texto.status.value}</td></tr>"
+            f"<tr><td>Tempo Processamento</td>"
+            f"<td>{str(datetime.now() - texto.data_carregamento).split('.')[0]}</td></tr>"
             f"<tr><td>Progresso</td>"
             f"<td>{texto.progresso_percentual:.0f}%"
             f"</td></tr>"
             f"</table></div>"
         )
+
+        # Análise de Consistência
+        if texto.analise_consistencia:
+            partes.append(
+                f'<div class="resumo-box">'
+                f"<h2>Análise de Consistência</h2>"
+                f"<div style='background: white; padding: 15px; border-radius: 4px; border-left: 4px solid #3f51b5;'>"
+                f"{self._render_consistencia_tabela(texto.analise_consistencia)}"
+                f"</div></div>"
+            )
+
+        # Síntese Geral
+        if texto.sintese_geral:
+            partes.append(
+                f'<div class="resumo-box">'
+                f"<h2>Síntese Geral</h2>"
+                f"<div style='background: white; padding: 15px; border-radius: 4px; border-left: 4px solid #2e7d32;'>"
+                f"{self._markdown_to_html(texto.sintese_geral)}"
+                f"</div></div>"
+            )
 
         # Seções
         partes.append("<h2>Detalhes por Seção</h2>")
@@ -155,7 +239,6 @@ class HtmlReportGenerator(IReportGenerator):
                 partes.append(
                     "<table><tr>"
                     "<th>#</th><th>Tipo</th>"
-                    "<th>Sev.</th>"
                     "<th>Original</th>"
                     "<th>Justificativa</th>"
                     "<th>Correção</th></tr>"
@@ -165,8 +248,6 @@ class HtmlReportGenerator(IReportGenerator):
                     partes.append(
                         f"<tr><td>{i}</td>"
                         f"<td>{erro.tipo.value}</td>"
-                        f'<td class="severidade">'
-                        f"{sev}</td>"
                         f"<td><code>"
                         f"{erro.trecho_original}"
                         f"</code></td>"
@@ -206,6 +287,117 @@ class HtmlReportGenerator(IReportGenerator):
 
     def obter_formato(self) -> FormatoRelatorio:
         return FormatoRelatorio.HTML
+
+    def _markdown_to_html(self, text: str) -> str:
+        """Converte markdown básico para HTML (bold, italic, lists)."""
+        if not text:
+            return ""
+        
+        import re
+        
+        # 1. Escapar HTML para segurança
+        text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        
+        # 2. Bold: **text**
+        text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text, flags=re.DOTALL)
+        
+        # 3. Italic: *text* (evitando casar o que já é bold)
+        text = re.sub(r'(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)', r'<em>\1</em>', text, flags=re.DOTALL)
+        
+        # 4. Processar linhas para listas
+        lines = text.split('\n')
+        new_lines = []
+        in_list = False
+        
+        for line in lines:
+            stripped = line.strip()
+            # Detectar marcadores de lista (- ou *)
+            # Regex: início da linha opcionalmente com espaços, seguido de - ou *, seguido de espaço
+            match = re.match(r'^[\s]*[\-\*][\s]+(.*)', line)
+            
+            if match:
+                if not in_list:
+                    new_lines.append('<ul>')
+                    in_list = True
+                content = match.group(1)
+                new_lines.append(f'<li>{content}</li>')
+            else:
+                if in_list:
+                    new_lines.append('</ul>')
+                    in_list = False
+                new_lines.append(line)
+        
+        if in_list:
+            new_lines.append('</ul>')
+            
+        # 5. Juntar e converter quebras de linha em <br> (exceto em listas)
+        final_text = ""
+        for i, line in enumerate(new_lines):
+            final_text += line
+            # Adicionar <br> se não for tag de lista ou se a próxima linha não for fechamento/abertura de lista
+            if not line.endswith('<ul>') and not line.endswith('</ul>') and not line.startswith('<li>'):
+                if i < len(new_lines) - 1 and not new_lines[i+1].startswith('<li>') and not new_lines[i+1].startswith('</ul>'):
+                    final_text += "<br>"
+        
+        return final_text
+
+    def _render_consistencia_tabela(self, content: str) -> str:
+        """Tenta parsear JSON de consistência e renderiza como tabela HTML."""
+        if not content:
+            return ""
+            
+        try:
+            import json
+            dados = json.loads(content)
+            inconsistencias = dados.get("inconsistencias", [])
+            
+            if not inconsistencias:
+                resumo = dados.get("resumo")
+                if resumo:
+                    return f"<p>{resumo}</p>"
+                return self._markdown_to_html(content)
+                
+            # Construir tabela HTML
+            html = [
+                "<table>",
+                "<thead><tr>",
+                "<th>Seção 1</th>",
+                "<th>Seção 2</th>",
+                "<th>Descrição</th>",
+                "<th style='width: 80px;'>Sev</th>",
+                "<th>Sugestão</th>",
+                "</tr></thead>",
+                "<tbody>"
+            ]
+            
+            for inc in inconsistencias:
+                s1 = inc.get("secao_1", "-")
+                s2 = inc.get("secao_2", "-")
+                desc = inc.get("descricao", "")
+                sev_num = inc.get("severidade", 1)
+                sev = "⚠️" * sev_num
+                sug = inc.get("sugestao", "")
+                
+                html.append("<tr>")
+                html.append(f"<td>{s1}</td>")
+                html.append(f"<td>{s2}</td>")
+                html.append(f"<td>{desc}</td>")
+                html.append(f"<td>{sev}</td>")
+                html.append(f"<td>{sug}</td>")
+                html.append("</tr>")
+                
+            html.append("</tbody></table>")
+            
+            # Adicionar resumo se existir
+            resumo = dados.get("resumo")
+            if resumo:
+                html.append(f"<p style='margin-top: 15px;'><strong>Resumo:</strong> {resumo}</p>")
+                
+            return "\n".join(html)
+            
+        except Exception:
+            # Fallback para markdown tradicional
+            return self._markdown_to_html(content)
 
     def salvar(
         self,

@@ -60,9 +60,44 @@ class MarkdownReportGenerator(IReportGenerator):
             f"| Total de erros | "
             f"{texto.total_erros_encontrados} |\n"
             f"| Status | {texto.status.value} |\n"
-            f"| Progresso | "
-            f"{texto.progresso_percentual:.0f}% |\n"
         )
+
+        # Análise de Consistência
+        if texto.analise_consistencia:
+            secoes_md.append("## Análise de Consistência\n")
+            
+            try:
+                import json
+                dados = json.loads(texto.analise_consistencia)
+                inconsistencias = dados.get("inconsistencias", [])
+                
+                if inconsistencias:
+                    secoes_md.append(
+                        "| Seção 1 | Seção 2 | Descrição | Sev | Sugestão |\n"
+                        "|---------|---------|-----------|-----|----------|\n"
+                    )
+                    for inc in inconsistencias:
+                        s1 = inc.get("secao_1", "-")
+                        s2 = inc.get("secao_2", "-")
+                        desc = inc.get("descricao", "").replace("\n", " ")
+                        sev = "⚠️" * inc.get("severidade", 1)
+                        sug = inc.get("sugestao", "").replace("\n", " ")
+                        secoes_md.append(
+                            f"| {s1} | {s2} | {desc} | {sev} | {sug} |\n"
+                        )
+                else:
+                    resumo = dados.get("resumo")
+                    if resumo:
+                        secoes_md.append(f"{resumo}\n")
+                    else:
+                        secoes_md.append(f"{texto.analise_consistencia}\n")
+            except Exception:
+                secoes_md.append(f"{texto.analise_consistencia}\n")
+
+        # Síntese Geral
+        if texto.sintese_geral:
+            secoes_md.append("## Síntese Geral\n")
+            secoes_md.append(f"{texto.sintese_geral}\n")
 
         # Detalhes por seção
         secoes_md.append(
@@ -88,9 +123,9 @@ class MarkdownReportGenerator(IReportGenerator):
                     "#### Erros Encontrados\n"
                 )
                 secoes_md.append(
-                    "| # | Tipo | Severidade "
-                    "| Original | Justificativa | Correção |\n"
-                    "|---|------|------------|"
+                    "| # | Tipo | "
+                    "Original | Justificativa | Correção |\n"
+                    "|---|------|"
                     "----------|---------------|----------|\n"
                 )
                 for i, erro in enumerate(erros, 1):
@@ -100,7 +135,6 @@ class MarkdownReportGenerator(IReportGenerator):
                     secoes_md.append(
                         f"| {i} | "
                         f"{erro.tipo.value} | "
-                        f"{'⚠️' * erro.severidade} | "
                         f"`{orig}` | "
                         f"{just} | "
                         f"`{corr}` |\n"

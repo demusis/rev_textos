@@ -81,17 +81,20 @@ class ConfigDialog(QDialog):
         super().__init__(parent)
         self._config = dict(config)
         self._prompt_editors = {}
+        self._combo_fases = {}  # fase_key -> QComboBox
         self._workers = []
-        self._model_gemini_selecionado = "gemini-2.0-flash"
-        self._model_groq_selecionado = "llama-3.3-70b-versatile"
-        self._model_openrouter_selecionado = "google/gemini-2.5-flash-preview-05-20"
+        self._cached_models = {
+            "gemini": list(AIGatewayFactory.FALLBACK_GEMINI),
+            "groq": list(AIGatewayFactory.FALLBACK_GROQ),
+            "openrouter": [],
+        }
         self._setup_ui()
         self._carregar_valores()
 
     def _setup_ui(self) -> None:
         """Configura interface do diálogo."""
         self.setWindowTitle("⚙️ Configurações")
-        self.setMinimumSize(700, 600)
+        self.setMinimumSize(1000, 700)
         self.setModal(True)
 
         layout = QVBoxLayout(self)
@@ -101,6 +104,7 @@ class ConfigDialog(QDialog):
         layout.addWidget(self._tabs)
 
         self._criar_tab_provedores()
+        self._criar_tab_perfis()
         self._criar_tab_processamento()
         self._criar_tab_diretorios()
         self._criar_tab_prompts()
@@ -148,15 +152,17 @@ class ConfigDialog(QDialog):
         """Aba para selecionar e configurar provedores de IA."""
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        layout.setSpacing(20)
 
         # Seleção de Provedor
-        grupo_prov = QGroupBox("🤖 Seleção de Provedor")
+        grupo_prov = QGroupBox("🤖 Configuração de Provedor")
         prov_layout = QFormLayout(grupo_prov)
+        prov_layout.setContentsMargins(16, 24, 16, 24)
 
         self._combo_provider = QComboBox()
         self._combo_provider.addItems(["Gemini", "Groq", "OpenRouter"])
         self._combo_provider.currentIndexChanged.connect(self._on_provider_changed)
-        prov_layout.addRow("Provedor Ativo:", self._combo_provider)
+        prov_layout.addRow("Provedor:", self._combo_provider)
 
         layout.addWidget(grupo_prov)
 
@@ -166,50 +172,42 @@ class ConfigDialog(QDialog):
         # Página Gemini
         page_gemini = QWidget()
         layout_gemini = QFormLayout(page_gemini)
+        layout_gemini.setContentsMargins(0, 0, 0, 0)
         
         self._txt_gemini_key = QLineEdit()
         self._txt_gemini_key.setEchoMode(QLineEdit.EchoMode.Password)
         self._txt_gemini_key.setPlaceholderText("Cole sua chave Gemini aqui...")
         layout_gemini.addRow("API Key (Gemini):", self._txt_gemini_key)
         
-        self._combo_model_gemini = QComboBox()
-        self._combo_model_gemini.setEditable(True)
-        layout_gemini.addRow("Modelo:", self._combo_model_gemini)
-        
         self._stack_prov.addWidget(page_gemini)
 
         # Página Groq
         page_groq = QWidget()
         layout_groq = QFormLayout(page_groq)
+        layout_groq.setContentsMargins(0, 0, 0, 0)
         
         self._txt_groq_key = QLineEdit()
         self._txt_groq_key.setEchoMode(QLineEdit.EchoMode.Password)
         self._txt_groq_key.setPlaceholderText("Cole sua chave Groq aqui...")
         layout_groq.addRow("API Key (Groq):", self._txt_groq_key)
         
-        self._combo_model_groq = QComboBox()
-        self._combo_model_groq.setEditable(True)
-        layout_groq.addRow("Modelo:", self._combo_model_groq)
-        
         self._stack_prov.addWidget(page_groq)
 
         # Página OpenRouter
         page_openrouter = QWidget()
         layout_openrouter = QFormLayout(page_openrouter)
+        layout_openrouter.setContentsMargins(0, 0, 0, 0)
 
         self._txt_openrouter_key = QLineEdit()
         self._txt_openrouter_key.setEchoMode(QLineEdit.EchoMode.Password)
         self._txt_openrouter_key.setPlaceholderText("Cole sua chave OpenRouter aqui...")
         layout_openrouter.addRow("API Key (OpenRouter):", self._txt_openrouter_key)
 
-        self._combo_model_openrouter = QComboBox()
-        self._combo_model_openrouter.setEditable(True)
-        layout_openrouter.addRow("Modelo:", self._combo_model_openrouter)
-
         self._stack_prov.addWidget(page_openrouter)
 
-        grupo_config = QGroupBox("⚙️ Configuração Específica")
+        grupo_config = QGroupBox("⚙️ Credenciais")
         layout_config = QVBoxLayout(grupo_config)
+        layout_config.setContentsMargins(16, 24, 16, 24)
         layout_config.addWidget(self._stack_prov)
         layout.addWidget(grupo_config)
 
@@ -244,7 +242,131 @@ class ConfigDialog(QDialog):
         api_key = key_map[provider].text().strip()
         self._buscar_modelos(provider, api_key)
 
-    # ----- Tab 2: Processamento -----
+    # ----- Tab 2: Perfis de Complexidade -----
+
+    def _criar_tab_perfis(self) -> None:
+        """Aba para configurar perfis de complexidade."""
+        tab = QWidget()
+        main_layout = QHBoxLayout(tab) # Layout horizontal principal
+        main_layout.setSpacing(24)
+
+        # Coluna da Esquerda: Perfis
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(16)
+
+        # Helper para criar grupo de perfil
+        def create_profile_group(title, key):
+             grupo = QGroupBox(title)
+             gl = QFormLayout(grupo)
+             gl.setContentsMargins(12, 20, 12, 20)
+             gl.setSpacing(12)
+             
+             combo_prov = QComboBox()
+             combo_prov.addItems(["Gemini", "Groq", "OpenRouter"])
+             combo_prov.setMinimumHeight(32)
+             combo_prov.setStyleSheet(f"QComboBox {{ padding: 4px; min-height: 32px; }}")
+             combo_prov.currentTextChanged.connect(
+                 lambda: self._atualizar_modelos_perfil(key)
+             )
+             
+             combo_model = QComboBox()
+             combo_model.setEditable(True)
+             combo_model.setMinimumHeight(32)
+             combo_model.setStyleSheet(f"QComboBox {{ padding: 4px; min-height: 32px; }}")
+             
+             gl.addRow("Provedor:", combo_prov)
+             gl.addRow("Modelo:", combo_model)
+             return grupo, combo_prov, combo_model
+
+        # Simples
+        g_simples, self._combo_prov_simples, self._combo_model_simples = \
+            create_profile_group("🟢 Perfil Simples", "simples")
+        left_layout.addWidget(g_simples)
+
+        # Padrão
+        g_padrao, self._combo_prov_padrao, self._combo_model_padrao = \
+            create_profile_group("🔵 Perfil Padrão", "padrao")
+        left_layout.addWidget(g_padrao)
+
+        # Complexo
+        g_complexo, self._combo_prov_complexo, self._combo_model_complexo = \
+            create_profile_group("🟣 Perfil Complexo", "complexo")
+        left_layout.addWidget(g_complexo)
+        
+        left_layout.addStretch() # Empurrar para cima
+
+        # Coluna da Direita: Mapeamento
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+
+        grupo_fases = QGroupBox("🔗 Mapeamento de Fases") # Texto corrigido
+        fases_layout = QFormLayout(grupo_fases)
+        fases_layout.setContentsMargins(12, 20, 12, 20)
+        fases_layout.setSpacing(12)
+        
+        fases_labels = [
+            ("gramatical", "Gramatical"),
+            ("tecnica", "Técnica"),
+            ("estrutural", "Estrutural"),
+            ("validacao", "Validação"),
+            ("consistencia", "Consistência"),
+        ]
+        
+        for fase_key, fase_label in fases_labels:
+            combo = QComboBox()
+            combo.setMinimumHeight(32)
+            combo.setStyleSheet(f"QComboBox {{ padding: 4px; min-height: 32px; }}")
+            combo.addItem("Desativado", None)
+            combo.addItem("Simples", "simples")
+            combo.addItem("Padrão", "padrao")
+            combo.addItem("Complexo", "complexo")
+            self._combo_fases[fase_key] = combo
+            fases_layout.addRow(f"{fase_label}:", combo)
+
+        right_layout.addWidget(grupo_fases)
+        right_layout.addStretch()
+        
+        # Adicionar colunas ao layout principal
+        main_layout.addWidget(left_widget, stretch=3) # 60% largura
+        main_layout.addWidget(right_widget, stretch=2) # 40% largura
+
+        self._tabs.addTab(tab, "🧠 Perfis")
+
+    def _atualizar_modelos_perfil(self, perfil: str) -> None:
+        """Atualiza combo de modelos para o perfil."""
+        combos = {
+            "simples": (self._combo_prov_simples, self._combo_model_simples),
+            "padrao": (self._combo_prov_padrao, self._combo_model_padrao),
+            "complexo": (self._combo_prov_complexo, self._combo_model_complexo),
+        }
+        
+        combo_prov, combo_model = combos.get(perfil)
+        provider = combo_prov.currentText().lower()
+        
+        modelos = self._cached_models.get(provider, [])
+        if not modelos:
+            # Fallback se cache estiver vazio
+             if provider == "gemini":
+                 modelos = list(AIGatewayFactory.FALLBACK_GEMINI)
+             elif provider == "groq":
+                 modelos = list(AIGatewayFactory.FALLBACK_GROQ)
+             elif provider == "openrouter":
+                 modelos = list(AIGatewayFactory.FALLBACK_OPENROUTER)
+                
+        # Salvar seleção atual se possível
+        current = combo_model.currentText()
+        combo_model.clear()
+        combo_model.addItems(modelos)
+        
+        # Tentar restaurar ou definir default
+        if current in modelos:
+            combo_model.setCurrentText(current)
+        elif modelos:
+            combo_model.setCurrentIndex(0)
+
 
     def _criar_tab_processamento(self) -> None:
         """Aba de parâmetros de processamento."""
@@ -280,9 +402,17 @@ class ConfigDialog(QDialog):
         proc_form.addRow("Temperatura revisão:", self._spin_temp_rev)
 
         self._spin_max_tokens = QSpinBox()
-        self._spin_max_tokens.setRange(512, 32768)
+        self._spin_max_tokens.setRange(0, 32768)
         self._spin_max_tokens.setSingleStep(512)
         proc_form.addRow("Max tokens:", self._spin_max_tokens)
+
+        self._lbl_info_tokens = QLabel(
+            "💡 Use <b>0 para Automático</b>. "
+            "A IA tentará usar o máximo permitido pelo modelo para evitar truncar o texto."
+        )
+        self._lbl_info_tokens.setStyleSheet(f"color: {Tema.TEXTO_SECUNDARIO}; font-size: {Tema.FONT_SIZE_SMALL}px;")
+        self._lbl_info_tokens.setWordWrap(True)
+        proc_form.addRow("", self._lbl_info_tokens)
 
         layout.addWidget(grupo_proc)
 
@@ -382,25 +512,13 @@ class ConfigDialog(QDialog):
         key_gemini = api_keys.get("gemini") or c.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
         self._txt_gemini_key.setText(key_gemini)
         
-        self._model_gemini_selecionado = c.get(
-            "gemini_model", c.get("model_gemini", "gemini-2.0-flash")
-        )
-
         # Groq
         key_groq = api_keys.get("groq") or os.environ.get("GROQ_API_KEY", "")
         self._txt_groq_key.setText(key_groq)
 
-        self._model_groq_selecionado = c.get(
-            "model_groq", "llama-3.3-70b-versatile"
-        )
-
         # OpenRouter
         key_openrouter = api_keys.get("openrouter") or os.environ.get("OPENROUTER_API_KEY", "")
         self._txt_openrouter_key.setText(key_openrouter)
-
-        self._model_openrouter_selecionado = c.get(
-            "model_openrouter", "google/gemini-2.5-flash-preview-05-20"
-        )
 
         # Buscar modelos via API para todos os provedores
         self._workers = []  # manter referências
@@ -424,6 +542,49 @@ class ConfigDialog(QDialog):
         self._spin_max_tokens.setValue(c.get("max_tokens_revisao", 4096))
         self._chk_modo_mock.setChecked(c.get("modo_mock", False))
         
+        # -- Perfis --
+        perfis = c.get("ai_profiles", {})
+        
+        provider_display_map = {
+            "gemini": "Gemini",
+            "groq": "Groq",
+            "openrouter": "OpenRouter"
+        }
+
+        # Simples
+        p_simples = perfis.get("simples", {})
+        prov_s = p_simples.get("provider", "gemini").lower()
+        display_s = provider_display_map.get(prov_s, "Gemini")
+        idx = self._combo_prov_simples.findText(display_s)
+        if idx >= 0: self._combo_prov_simples.setCurrentIndex(idx)
+        self._combo_model_simples.setCurrentText(p_simples.get("model", "gemini-2.0-flash"))
+
+        # Padrão
+        p_padrao = perfis.get("padrao", {})
+        prov_p = p_padrao.get("provider", "gemini").lower()
+        display_p = provider_display_map.get(prov_p, "Gemini")
+        idx = self._combo_prov_padrao.findText(display_p)
+        if idx >= 0: self._combo_prov_padrao.setCurrentIndex(idx)
+        self._combo_model_padrao.setCurrentText(p_padrao.get("model", "gemini-2.0-flash"))
+
+        # Complexo
+        p_complexo = perfis.get("complexo", {})
+        prov_c = p_complexo.get("provider", "groq").lower()
+        display_c = provider_display_map.get(prov_c, "Groq")
+        idx = self._combo_prov_complexo.findText(display_c)
+        if idx >= 0: self._combo_prov_complexo.setCurrentIndex(idx)
+        self._combo_model_complexo.setCurrentText(p_complexo.get("model", "llama-3.3-70b-versatile"))
+
+        # Carregar mapeamento de fases
+        mapping = c.get("phase_mapping", {})
+        for fase_key, combo in self._combo_fases.items():
+            perfil = mapping.get(fase_key)
+            idx = combo.findData(perfil)
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+            else:
+                combo.setCurrentIndex(0)  # Desativado
+
         # -- Diretórios --
         self._txt_saida.setText(c.get("diretorio_saida", "./output"))
         self._txt_dados.setText(c.get("diretorio_dados", "./data/textos"))
@@ -445,15 +606,6 @@ class ConfigDialog(QDialog):
         self, provider: str, api_key: str
     ) -> None:
         """Busca modelos via API em background thread."""
-        combo_map = {
-            "groq": self._combo_model_groq,
-            "openrouter": self._combo_model_openrouter,
-        }
-        combo = combo_map.get(provider, self._combo_model_gemini)
-        combo.clear()
-        combo.addItem("⏳ Buscando modelos...")
-        combo.setEnabled(False)
-
         worker = _ModelFetchWorker(provider, api_key, parent=self)
         worker.finished.connect(self._on_modelos_recebidos)
         self._workers.append(worker)
@@ -470,35 +622,27 @@ class ConfigDialog(QDialog):
         self, provider: str, modelos: List[str]
     ) -> None:
         """Callback quando modelos são recebidos da API."""
-        combo_map = {
-            "groq": self._combo_model_groq,
-            "openrouter": self._combo_model_openrouter,
-        }
-        combo = combo_map.get(provider, self._combo_model_gemini)
-        modelo_map = {
-            "groq": self._model_groq_selecionado,
-            "openrouter": self._model_openrouter_selecionado,
-        }
-        modelo_salvo = modelo_map.get(
-            provider, self._model_gemini_selecionado
-        )
-
-        combo.clear()
-        combo.setEnabled(True)
-        combo.setEditable(True)
-
         if modelos:
-            combo.addItems(modelos)
-            logger.info(
-                f"{provider}: {len(modelos)} modelos carregados"
-            )
+            self._cached_models[provider] = modelos
+            logger.info(f"{provider}: {len(modelos)} modelos carregados")
         else:
-            logger.warning(
-                f"{provider}: nenhum modelo retornado, usando fallback"
-            )
+            logger.warning(f"{provider}: nenhum modelo retornado")
 
-        # Restaurar seleção anterior
-        combo.setCurrentText(modelo_salvo)
+        # Atualizar combos dos perfis que usam este provedor
+        self._refresh_profile_combos(provider)
+
+    def _refresh_profile_combos(self, provider_updated: str) -> None:
+        """Atualiza combos de perfil se estiverem usando o provedor atualizado."""
+        profiles = [
+            ("simples", self._combo_prov_simples),
+            ("padrao", self._combo_prov_padrao),
+            ("complexo", self._combo_prov_complexo)
+        ]
+        
+        for key, combo_prov in profiles:
+            if combo_prov.currentText().lower() == provider_updated:
+                self._atualizar_modelos_perfil(key)
+
 
     def _atualizar_config_from_ui(self) -> None:
         """Atualiza dicionário de config com valores da UI."""
@@ -517,11 +661,8 @@ class ConfigDialog(QDialog):
         if api_keys["gemini"]:
             self._config["gemini_api_key"] = api_keys["gemini"]
 
-        # Models
-        self._config["model_gemini"] = self._combo_model_gemini.currentText()
-        self._config["gemini_model"] = self._config["model_gemini"] # Retrocompatibilidade
-        self._config["model_groq"] = self._combo_model_groq.currentText()
-        self._config["model_openrouter"] = self._combo_model_openrouter.currentText()
+        # Models (Removed from Tab 1 - relying on defaults or profiles)
+        # self._config["model_gemini"] = ... 
 
         # Params
         self._config.update({
@@ -536,6 +677,34 @@ class ConfigDialog(QDialog):
             "diretorio_saida": self._txt_saida.text(),
             "diretorio_dados": self._txt_dados.text(),
         })
+
+        # Coletar mapeamento
+        phase_mapping = {}
+        for fase_key, combo in self._combo_fases.items():
+            val = combo.currentData()
+            if val:
+                phase_mapping[fase_key] = val
+        
+        self._config["phase_mapping"] = phase_mapping
+
+        # Perfis (sem fases agora)
+        self._config["ai_profiles"] = {
+            "simples": {
+                "provider": self._combo_prov_simples.currentText().lower(),
+                "model": self._combo_model_simples.currentText(),
+                "temperatura": 0.2
+            },
+            "padrao": {
+                "provider": self._combo_prov_padrao.currentText().lower(),
+                "model": self._combo_model_padrao.currentText(),
+                "temperatura": 0.3
+            },
+            "complexo": {
+                "provider": self._combo_prov_complexo.currentText().lower(),
+                "model": self._combo_model_complexo.currentText(),
+                "temperatura": 0.4
+            }
+        }
 
         # Prompts
         prompts = {}

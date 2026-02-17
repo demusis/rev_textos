@@ -243,11 +243,19 @@ class GeminiGateway(IAIGateway):
             1, self._max_retries + 1
         ):
             try:
+                # Ajuste automático de max_tokens
+                tokens_to_use = max_tokens
+                if tokens_to_use == 0:
+                    # Gemini 1.5 e 2.0 suportam até 8k ou 1k (flash) output tokens 
+                    # na verdade as janelas de saída costumam ser menores (8192)
+                    tokens_to_use = 8192
+                    logger.debug(f"[{origem}] Max tokens ajustado automaticamente para: {tokens_to_use}")
+
                 logger.info(
                     f"[{origem}] 📡 Modelo: {self._model_name} "
                     f"| Tentativa {tentativa}/{self._max_retries} "
                     f"| Temp: {temperatura} "
-                    f"| Tokens máx: {max_tokens}"
+                    f"| Tokens máx: {tokens_to_use}"
                 )
                 logger.info(
                     f"[{origem}] ⏳ Aguardando resposta da IA "
@@ -259,7 +267,7 @@ class GeminiGateway(IAIGateway):
                 resultado = await self._executar_request(
                     prompt_completo,
                     temperatura,
-                    max_tokens,
+                    tokens_to_use,
                     stop_sequences,
                 )
                 _tempo_req = time.time() - _inicio_req

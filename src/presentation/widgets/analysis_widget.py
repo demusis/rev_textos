@@ -31,6 +31,7 @@ class AnalysisWidget(QWidget):
 
     voltar_clicked = pyqtSignal()
     relatorio_solicitado = pyqtSignal(str)
+    cancelar_processamento = pyqtSignal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -48,6 +49,7 @@ class AnalysisWidget(QWidget):
         # Progresso
         # Progresso (expande para ocupar espaço)
         self.progresso = ProgressoWidget()
+        self.progresso.cancelar_clicked.connect(self._on_cancelar)
         layout.addWidget(self.progresso, stretch=1)
 
         # Resultados (inicialmente oculto ou vazio)
@@ -77,3 +79,7 @@ class AnalysisWidget(QWidget):
         self.progresso.atualizar_progresso(
             etapa, percentual, mensagem
         )
+
+    def _on_cancelar(self) -> None:
+        """Handler para botão interromper."""
+        self.cancelar_processamento.emit()

@@ -70,8 +70,8 @@ class ProcessarTextoUseCase:
         self,
         pdf_processor: IPdfProcessor,
         agentes_revisores: List[IAIAgent],
-        agente_validador: IAIAgent,
-        agente_consistencia: IAIAgent,
+        agente_validador: Optional[IAIAgent],
+        agente_consistencia: Optional[IAIAgent],
         texto_repo: ITextoRepository,
         config_repo: IConfigRepository,
         geradores_relatorio: Dict[
@@ -81,6 +81,7 @@ class ProcessarTextoUseCase:
         callback_progresso: Optional[
             Callable[[ProgressoDTO], None]
         ] = None,
+        check_cancel: Optional[Callable[[], None]] = None,
     ) -> None:
         self._pdf_processor = pdf_processor
         self._agentes_revisores = agentes_revisores
@@ -95,6 +96,7 @@ class ProcessarTextoUseCase:
         )
         self._logger = logger
         self._callback_progresso = callback_progresso
+        self._check_cancel_callback = check_cancel
 
         # Compor sub-use-cases — um por agente revisor
         self._ucs_revisar = []
@@ -111,14 +113,22 @@ class ProcessarTextoUseCase:
             geradores=geradores_relatorio,
             logger=logger,
         )
-        self._uc_consistencia = (
-            VerificarConsistenciaUseCase(
-                agente=agente_consistencia,
-                logger=logger,
+        if agente_consistencia:
+            self._uc_consistencia = (
+                VerificarConsistenciaUseCase(
+                    agente=agente_consistencia,
+                    logger=logger,
+                )
             )
-        )
+        else:
+            self._uc_consistencia = None
         # Validador de negócio
         self._validator = TextoValidator()
+
+    def _check_cancel(self) -> None:
+        """Verifica se cancelamento foi solicitado."""
+        if self._check_cancel_callback:
+            self._check_cancel_callback()
 
     async def executar(
         self, input_dto: ProcessarTextoInputDTO
@@ -143,15 +153,33 @@ class ProcessarTextoUseCase:
             modo_proc = config.get(
                 "modo_processamento", "texto_completo"
             )
-            # Verificar IA em uso para logs
-            info_ia = {"provedor": "Desconhecido", "modelo": "Desconhecido"}
-            agente = self._agentes_revisores[0]
-            if hasattr(agente, "_gateway") and agente._gateway:
-                 info_ia = agente._gateway.obter_info_modelo()
+            # Verificar IA em uso para logs e relatórios
+            # Captura a configuração completa de perfis e fases
+            info_ia = {
+                "provedor": "Múltiplos",
+                "modelo": "Vide detalhe",
+                "perfis": config.get("ai_profiles", {}),
+                "fases": config.get("phase_mapping", {}),
+            }
 
-            mock_label = " [MOCK]" if getattr(
-                self._agentes_revisores[0], '_gateway', None
-            ) and self._agentes_revisores[0]._gateway._modo_mock else ""
+            # Mantém compatibilidade ou fallback se não houver perfis configurados
+            # (ex: config antiga ou execução direta sem perfis)
+            if not info_ia["perfis"] and self._agentes_revisores:
+                agente = self._agentes_revisores[0]
+                if hasattr(agente, "_gateway") and agente._gateway:
+                     dados_agente = agente._gateway.obter_info_modelo()
+                     info_ia["provedor"] = dados_agente.get("provedor", "Desconhecido")
+                     info_ia["modelo"] = dados_agente.get("modelo", "Desconhecido")
+                     # Cria um perfil "padrão" fictício para compatibilidade
+                     info_ia["perfis"] = {
+                         "padrão": {
+                             "provider": info_ia["provedor"],
+                             "model": info_ia["modelo"]
+                         }
+                     }
+                     info_ia["fases"] = {}  # Sem mapeamento específico
+
+            mock_label = " [MOCK]" if config.get("modo_mock") else ""
 
             msg_inicio = (
                 f"Iniciando pipeline de revisão{mock_label} | "
@@ -159,6 +187,7 @@ class ProcessarTextoUseCase:
             )
 
             self._notificar_progresso("inicio", 0, msg_inicio)
+            self._check_cancel()
 
             # Etapa 1: Carregar e validar documento
             self._notificar_progresso(
@@ -167,6 +196,9 @@ class ProcessarTextoUseCase:
             texto = await self._carregar_documento(
                 input_dto.caminho_arquivo
             )
+            texto.info_ia = info_ia
+
+            self._check_cancel()
 
             # Etapa 2: Extrair texto
             self._notificar_progresso(
@@ -184,6 +216,7 @@ class ProcessarTextoUseCase:
                     "extracao", 15,
                     f"Texto extraído: {len(texto.secoes)} seção(ões) | modo: por seção",
                 )
+            self._check_cancel()
 
             # Etapa 3: Revisões por fase (cada agente revisor)
             total_fases = len(self._ucs_revisar)
@@ -219,6 +252,7 @@ class ProcessarTextoUseCase:
                         f"  [{nome_exibicao}] Seção {i}/{total}: "
                         f"{secao.titulo}",
                     )
+                    self._check_cancel()
                     await uc_revisar.executar(secao, texto)
 
                 self._notificar_progresso(
@@ -228,52 +262,64 @@ class ProcessarTextoUseCase:
                 )
 
             # Etapa 4: Validação
-            self._notificar_progresso(
-                "validacao",
-                60,
-                f"━━━ INÍCIO: Validação{mock_label}",
-            )
-            for i, secao in enumerate(texto.secoes, 1):
+            if self._agente_validador:
                 self._notificar_progresso(
                     "validacao",
-                    60 + int((i / len(texto.secoes)) * 10),
-                    f"  [Validação] Seção {i}/{len(texto.secoes)}: "
-                    f"{secao.titulo}",
+                    60,
+                    f"━━━ INÍCIO: Validação{mock_label}",
                 )
-                ultima_rev = secao.obter_ultima_revisao()
-                config_val = {
-                    "texto_original": secao.conteudo_original,
-                    "texto_revisado": (
-                        ultima_rev.texto_saida
-                        if ultima_rev else secao.conteudo_original
-                    ),
-                    "erros_encontrados": [
-                        {
-                            "trecho": e.trecho_original,
-                            "sugestao": e.sugestao_correcao,
-                        }
-                        for e in secao.obter_todos_erros()
-                    ],
-                }
-                await self._agente_validador.processar(
-                    secao, config_val
+                self._check_cancel()
+                for i, secao in enumerate(texto.secoes, 1):
+                    self._notificar_progresso(
+                        "validacao",
+                        60 + int((i / len(texto.secoes)) * 10),
+                        f"  [Validação] Seção {i}/{len(texto.secoes)}: "
+                        f"{secao.titulo}",
+                    )
+                    self._check_cancel()
+                    ultima_rev = secao.obter_ultima_revisao()
+                    config_val = {
+                        "texto_original": secao.conteudo_original,
+                        "texto_revisado": (
+                            ultima_rev.texto_saida
+                            if ultima_rev else secao.conteudo_original
+                        ),
+                        "erros_encontrados": [
+                            {
+                                "trecho": e.trecho_original,
+                                "sugestao": e.sugestao_correcao,
+                            }
+                            for e in secao.obter_todos_erros()
+                        ],
+                    }
+                    await self._agente_validador.processar(
+                        secao, config_val
+                    )
+                self._notificar_progresso(
+                    "validacao", 70,
+                    f"━━━ FIM: Validação",
                 )
-            self._notificar_progresso(
-                "validacao", 70,
-                f"━━━ FIM: Validação",
-            )
+            else:
+                 self._logger.info("Fase de validação desativada.")
 
             # Etapa 5: Consistência
-            self._notificar_progresso(
-                "consistencia",
-                72,
-                f"━━━ INÍCIO: Consistência{mock_label}",
-            )
-            await self._uc_consistencia.executar(texto)
-            self._notificar_progresso(
-                "consistencia", 78,
-                f"━━━ FIM: Consistência",
-            )
+            if self._uc_consistencia:
+                self._notificar_progresso(
+                    "consistencia",
+                    72,
+                    f"━━━ INÍCIO: Consistência{mock_label}",
+                )
+                self._check_cancel()
+                resultado_consistencia = await self._uc_consistencia.executar(texto)
+                # O UC retorna um dict, pegamos o texto 'resultado'
+                texto.analise_consistencia = resultado_consistencia.get("resultado")
+                
+                self._notificar_progresso(
+                    "consistencia", 78,
+                    f"━━━ FIM: Consistência",
+                )
+            else:
+                self._logger.info("Fase de consistência desativada.")
 
             # Etapa 6: Síntese
             self._notificar_progresso(
@@ -281,6 +327,7 @@ class ProcessarTextoUseCase:
                 80,
                 f"━━━ INÍCIO: Síntese{mock_label}",
             )
+            self._check_cancel()
             contexto_sintese = {
                 "total_secoes": len(texto.secoes),
                 "secoes": [
@@ -292,9 +339,10 @@ class ProcessarTextoUseCase:
                     for s in texto.secoes
                 ],
             }
-            await self._agentes_revisores[0].gerar_sintese(
+            text_sintese = await self._agentes_revisores[0].gerar_sintese(
                 contexto_sintese
             )
+            texto.sintese_geral = text_sintese
             self._notificar_progresso(
                 "sintese", 85,
                 f"━━━ FIM: Síntese",
@@ -306,6 +354,7 @@ class ProcessarTextoUseCase:
                 87,
                 "Gerando relatórios...",
             )
+            self._check_cancel()
             relatorios = await self._gerar_relatorios(
                 texto, input_dto
             )
@@ -384,12 +433,9 @@ class ProcessarTextoUseCase:
             numero_paginas=metadados.numero_paginas,
         )
         
-        # Injetar info da IA (se disponível no use case)
-        # Hack: O usecase tem acesso aos agentes, vamos pegar do primeiro
-        if self._agentes_revisores:
-            agente = self._agentes_revisores[0]
-            if hasattr(agente, "_gateway") and agente._gateway:
-                texto.info_ia = agente._gateway.obter_info_modelo()
+        # Injetar info da IA (populado anteriormente em executar ou vazio)
+        # A atribuição principal deve ocorrer no caso de uso para ter acesso à config completa
+        pass
 
         # Hash para integridade
         texto.calcular_hash()

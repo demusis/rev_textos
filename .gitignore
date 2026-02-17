@@ -46,3 +46,9 @@ htmlcov/
 
 # MyPy
 .mypy_cache/
+
+# Project Specific
+temp_verification/
+reproduce_debug.log
+reproduce_log.txt
+ laudo_teste.docx

@@ -1,36 +1,35 @@
-# Revisor de Textos Estruturados
+# Revisor de Textos Estruturados (RTE)
 
-Sistema avançado de revisão automática de textos estruturados (laudos, artigos, contratos) utilizando Inteligência Artificial.
+Sistema especializado para a revisão técnica e linguística de documentos estruturados (laudos periciais, artigos científicos, contratos) fundamentado em modelos de linguagem de grande escala (LLMs).
 
-O sistema processa documentos (PDF, Markdown), identifica seções e aplica múltiplos ciclos de revisão iterativa para garantir qualidade gramatical, técnica, estrutural e consistência.
+O sistema submete o documento a múltiplos ciclos de análise iterativa, permitindo a identificação e correção de inconsistências gramaticais, estruturais, técnicas e lógicas, garantindo a integridade e o rigor acadêmico do texto final.
 
 ## Funcionalidades Principais
 
-### Múltiplos Provedores de IA
-Flexibilidade total para escolher o "cérebro" da revisão:
--   **Google Gemini**: Ótimo custo-benefício e janela de contexto massiva (padrão: `gemini-2.0-flash`).
--   **Groq**: Velocidade extrema para inferência quase instantânea (modelos Llama 3, Mixtral).
--   **OpenRouter**: Acesso a dezenas de outros modelos (GPT-4, Claude 3, Qwen, Mistral, etc.).
--   **Modo Mock**: Para testes de interface sem consumo de API.
+### Integração com Múltiplos Provedores de IA
+O RTE suporta diversos motores de inferência para otimização do processo de revisão:
+-   **Google Gemini**: Alta eficiência em processamento de longos contextos (ex: `gemini-2.0-flash`).
+-   **Groq**: Desempenho superior em latência para revisões expeditas.
+-   **OpenRouter**: Acesso unificado a modelos de ponta (GPT-4, Claude 3, Mistral).
+-   **Modo Simulação (Mock)**: Ambiente controlado para validação de interface e fluxos.
 
-### Revisão Iterativa com Refinamento
-Diferente de revisores comuns, este sistema **refina** o texto em camadas:
-1.  O texto passa por uma primeira revisão.
-2.  A saída corrigida é usada como **entrada** para a próxima iteração.
-3.  O processo se repete (padrão: 5 iterações) ou até que o texto convirja (sem novos erros).
-Isso permite corrigir problemas profundos que só aparecem depois que a "sujeira" superficial é limpa.
+### Metodologia de Revisão Iterativa
+Diferente de sistemas de correção convencionais, o RTE emprega um algoritmo de refinamento progressivo:
+1.  **Análise Primária**: Identificação inicial de desvios normativos.
+2.  **Refinamento Progressivo**: O texto resultante de cada ciclo serve de entrada para o subsequente.
+3.  **Convergência Terapêutica**: O processo encerra-se após a estabilização do texto (ausência de novos erros) ou ao atingir o limite configurado de iterações.
 
-### Relatórios Consolidados
-O relatório final não mostra apenas o que sobrou. Ele apresenta:
--   **Histórico Completo**: Todos os erros únicos encontrados e corrigidos durante todo o processo.
--   **Métricas**: Total de erros, tipos de erro (gramatical, técnico, estrutural), tempo de processamento e tokens consumidos.
--   **Formatos**: Disponível em **HTML** (interativo) e **Markdown**.
+### Relatórios Analíticos Consolidados
+Geração de diagnósticos detalhados em formatos **HTML** e **Markdown**, incluindo:
+-   **Histórico de Revisão**: Registro exaustivo de todas as supressões e correções realizadas.
+-   **Análise de Consistência**: Tabela comparativa identificando contradições internas e divergências factuais entre seções do documento.
+-   **Métricas de Desempenho**: Quantificação de erros por categoria, consumo de recursos e tempo de processamento.
 
-### Controle Total (GUI)
-Interface gráfica moderna construída com PyQt6 que permite:
--   **Configuração Dinâmica**: Seleção de modelos via API (lista modelos disponíveis na sua conta).
--   **Ajuste Fino**: Controle de temperatura, tokens máximos, limiar de convergência (ex: parar se 95% do texto estiver ok).
--   **Persistência**: Importe/Exporte suas configurações de revisão e prompts personalizados.
+### Interface de Gestão (GUI)
+Console administrativo desenvolvido em PyQt6 para controle granular do processo:
+-   **Parametrização Dinâmica**: Ajuste de temperatura, tokens e limiares de convergência.
+-   **Gestão de Prompts**: Customização de diretrizes de revisão técnica e estrutural.
+-   **Persistência de Configurações**: Exportação e importação de perfis de análise.
 
 ---
 

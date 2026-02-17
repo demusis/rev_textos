@@ -101,6 +101,7 @@ class AIGatewayFactory:
     ]
 
     FALLBACK_OPENROUTER = [
+        "openrouter/auto",
         "google/gemini-2.5-flash-preview-05-20",
         "meta-llama/llama-3.3-70b-instruct:free",
         "mistralai/mistral-small-3.1-24b-instruct:free",

@@ -50,8 +50,8 @@ class OrquestradorRevisao:
         self,
         pdf_processor: IPdfProcessor,
         agentes_revisores: List[IAIAgent],
-        agente_validador: IAIAgent,
-        agente_consistencia: IAIAgent,
+        agente_validador: Optional[IAIAgent],
+        agente_consistencia: Optional[IAIAgent],
         texto_repo: ITextoRepository,
         config_repo: IConfigRepository,
         geradores_relatorio: Dict[
@@ -92,6 +92,7 @@ class OrquestradorRevisao:
         callback_progresso: Optional[
             Callable[[ProgressoDTO], None]
         ] = None,
+        check_cancel: Optional[Callable[[], None]] = None,
     ) -> ProcessarTextoOutputDTO:
         """
         Processa um texto estruturado completo.
@@ -102,6 +103,7 @@ class OrquestradorRevisao:
             caminho_arquivo: Caminho do arquivo
             formatos: Formatos de relatório desejados
             callback_progresso: Callback para progresso
+            check_cancel: Callback para verificar cancelamento
 
         Returns:
             DTO com resultado do processamento
@@ -123,6 +125,7 @@ class OrquestradorRevisao:
             ),
             logger=self._logger,
             callback_progresso=callback_progresso,
+            check_cancel=check_cancel,
         )
 
         input_dto = ProcessarTextoInputDTO(

@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QSpacerItem,
     QSizePolicy,
     QFrame,
+    QComboBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
@@ -111,6 +112,7 @@ class HomeWidget(QWidget):
         opts_layout.addWidget(self._chk_html)
         cont_layout.addLayout(opts_layout)
 
+
         # Separador
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
@@ -146,22 +148,10 @@ class HomeWidget(QWidget):
 
         cont_layout.addWidget(self._btn_iniciar)
 
-        # Info do Provedor (Rodapé do Card)
-        self._lbl_provider = QLabel("")
-        self._lbl_provider.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl_provider.setStyleSheet(
-            f"color: {Tema.TEXTO_SECUNDARIO}; font-size: 10pt; margin-top: 8px;"
-        )
-        cont_layout.addWidget(self._lbl_provider)
-
         # Adiciona ao layout principal (centralizado verticalmente)
         layout.addStretch()
         layout.addWidget(container)
         layout.addStretch()
-
-    def definir_info_provedor(self, provider: str, model: str) -> None:
-        """Atualiza label com info do provedor."""
-        self._lbl_provider.setText(f"🤖 IA: {provider} | Modelo: {model}")
 
     def habilitar_processar(self, habilitado: bool = True) -> None:
         """Habilita/desabilita o botão de iniciar processamento."""

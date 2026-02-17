@@ -26,7 +26,7 @@ CONFIG_PADRAO: Dict[str, Any] = {
     "temperatura_validacao": 0.2,
     "max_iteracoes": 5,
     "limiar_convergencia": 0.95,
-    "max_tokens_revisao": 4096,
+    "max_tokens_revisao": 0,
     "diretorio_saida": "./output",
     "diretorio_dados": "./data",
     "formatos_relatorio": ["markdown", "html"],
@@ -41,6 +41,30 @@ CONFIG_PADRAO: Dict[str, Any] = {
     "model_gemini": "gemini-2.0-flash",
     "model_groq": "llama3-70b-8192",
     "timeout_groq": 60,
+    "ai_profiles": {
+        "simples": {
+            "provider": "gemini",
+            "model": "gemini-2.0-flash",
+            "temperatura": 0.2
+        },
+        "padrao": {
+            "provider": "gemini",
+            "model": "gemini-2.0-flash",
+            "temperatura": 0.3
+        },
+        "complexo": {
+            "provider": "groq",
+            "model": "llama-3.3-70b-versatile",
+            "temperatura": 0.4
+        }
+    },
+    "phase_mapping": {
+        "gramatical": "simples",
+        "tecnica": "padrao",
+        "estrutural": "complexo",
+        "validacao": "padrao",
+        "consistencia": "complexo"
+    }
 }
 
 
@@ -78,6 +102,12 @@ class JsonConfigRepository(IConfigRepository):
                         encoding="utf-8"
                     )
                 )
+                
+                # Merge defaults for missing keys
+                for key, val in CONFIG_PADRAO.items():
+                    if key not in self._config:
+                        self._config[key] = val
+                
                 logger.info("Configuração carregada")
                 return
             except Exception as e:

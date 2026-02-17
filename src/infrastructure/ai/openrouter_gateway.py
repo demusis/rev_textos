@@ -113,12 +113,20 @@ class OpenRouterGateway(IAIGateway):
             )
         messages.append({"role": "user", "content": prompt})
 
+        # Ajuste automático de max_tokens
+        tokens_to_use = max_tokens
+        if tokens_to_use == 0:
+            tokens_to_use = 32768
+            if ":free" in self._model_name:
+                tokens_to_use = 4096
+            logger.debug(f"[{origem}] Max tokens ajustado automaticamente para: {tokens_to_use}")
+
         # Payload
         payload: Dict[str, Any] = {
             "model": self._model_name,
             "messages": messages,
             "temperature": temperatura,
-            "max_tokens": max_tokens,
+            "max_tokens": tokens_to_use,
         }
         if stop_sequences:
             payload["stop"] = stop_sequences
@@ -135,7 +143,7 @@ class OpenRouterGateway(IAIGateway):
             logger.info(
                 f"[{origem}] 📡 OpenRouter: "
                 f"{self._model_name} | Temp: {temperatura} "
-                f"| Tokens máx: {max_tokens}"
+                f"| Tokens máx: {tokens_to_use}"
             )
             logger.info(
                 f"[{origem}] ⏳ Aguardando resposta da IA "
@@ -208,9 +216,27 @@ class OpenRouterGateway(IAIGateway):
             )
 
             if not resultado:
+                finish_reason = choices[0].get("finish_reason")
+                refusal = choices[0].get("message", {}).get("refusal")
+                
+                logger.warning(
+                    f"[{origem}] ⚠️ Resposta vazia do OpenRouter. "
+                    f"Model: {self._model_name}, "
+                    f"Finish Reason: {finish_reason}, "
+                    f"Refusal: {refusal}"
+                )
+                logger.debug(f"[{origem}] Raw choice data: {choices[0]}")
+                
+                msg_erro = "A API do OpenRouter retornou conteúdo vazio."
+                if refusal:
+                    msg_erro = f"A IA recusou-se a responder (refusal): {refusal}"
+                elif finish_reason == "content_filter":
+                    msg_erro = "A resposta foi bloqueada por filtros de conteúdo."
+                
                 raise APIException(
-                    "A API do OpenRouter retornou conteúdo vazio.\n\n"
-                    "Tente outro modelo em Configurações."
+                    f"{msg_erro}\n\n"
+                    f"Finish Reason: {finish_reason}\n"
+                    "Tente outro modelo ou verifique se o prompt não viola as políticas da IA."
                 )
 
             # Registrar métricas

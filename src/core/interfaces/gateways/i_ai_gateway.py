@@ -23,7 +23,7 @@ class IAIGateway(ABC):
         prompt: str,
         contexto: Optional[str] = None,
         temperatura: float = 0.7,
-        max_tokens: int = 2048,
+        max_tokens: int = 0,
         stop_sequences: Optional[List[str]] = None,
     ) -> str:
         """
@@ -33,7 +33,7 @@ class IAIGateway(ABC):
             prompt: Prompt principal
             contexto: Contexto adicional
             temperatura: Temperatura (0.0-1.0)
-            max_tokens: Máximo de tokens na resposta
+            max_tokens: Máximo de tokens na resposta (0 = Automático)
             stop_sequences: Sequências de parada
 
         Returns:

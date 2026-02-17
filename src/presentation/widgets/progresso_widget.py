@@ -13,8 +13,11 @@ from PyQt6.QtWidgets import (
     QLabel,
     QTextEdit,
     QGroupBox,
+    QPushButton,
+    QSpacerItem,
+    QSizePolicy,
 )
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSlot, pyqtSignal
 from PyQt6.QtGui import QFont
 
 from ..tema import Tema
@@ -28,7 +31,10 @@ class ProgressoWidget(QWidget):
     - Barra de progresso com percentual
     - Label de etapa atual
     - Área de log com histórico de atividades
+    - Botão de interrupção
     """
+
+    cancelar_clicked = pyqtSignal()
 
     def __init__(
         self, parent: QWidget = None
@@ -67,6 +73,19 @@ class ProgressoWidget(QWidget):
         info_layout.addWidget(self._lbl_detalhe)
         info_layout.addStretch()
         card_layout.addLayout(info_layout)
+
+        # Botão de Interromper (inicialmente oculto/desabilitado ou visível)
+        self._btn_cancelar = QPushButton("Interromper Processamento")
+        self._btn_cancelar.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_cancelar.setStyleSheet(
+            f"background-color: {Tema.COR_ERRO}; color: #ffffff; border: none; "
+            f"padding: 8px; border-radius: 4px; font-weight: bold;"
+        )
+        self._btn_cancelar.clicked.connect(self.cancelar_clicked)
+        # Opcional: só habilitar quando estiver rodando. 
+        # Por simplificação, deixamos habilitado, mas poderíamos controlar.
+        
+        card_layout.addWidget(self._btn_cancelar)
 
         layout.addWidget(card)
 
@@ -117,6 +136,27 @@ class ProgressoWidget(QWidget):
             f"[{etapa.upper()}] {mensagem}"
         )
 
+        # Desabilitar botão de interrupção ao concluir
+        if percentual >= 100:
+            self.set_cancelar_habilitado(False, "Concluído")
+
+    def set_cancelar_habilitado(self, habilitado: bool, texto: str = None) -> None:
+        """
+        Altera o estado do botão de interrupção.
+
+        Args:
+            habilitado: Se deve habilitar o botão
+            texto: Novo texto do botão (opcional)
+        """
+        self._btn_cancelar.setEnabled(habilitado)
+        if texto:
+            self._btn_cancelar.setText(texto)
+            if texto == "Concluído":
+                self._btn_cancelar.setStyleSheet(
+                    f"background-color: {Tema.COR_SUCESSO}; color: #ffffff; border: none; "
+                    f"padding: 8px; border-radius: 4px; font-weight: bold;"
+                )
+
     def _adicionar_log(self, texto: str) -> None:
         """Adiciona entrada ao log, padronizando formato."""
         from datetime import datetime
@@ -160,3 +200,5 @@ class ProgressoWidget(QWidget):
         self._lbl_etapa.setText("Aguardando...")
         self._lbl_detalhe.setText("")
         self._log.clear()
+        self._btn_cancelar.setEnabled(True)
+        self._btn_cancelar.setText("Interromper Processamento")
